@@ -14,7 +14,15 @@ MIN_PASSWORD_LENGTH = 8
 
 
 class SenhaMuitoCurtaError(ValueError):
-    """A senha não atinge :data:`MIN_PASSWORD_LENGTH`."""
+    """A senha não atinge :data:`MIN_PASSWORD_LENGTH`.
+
+    É um ``ValueError`` puro, não um ``click.ClickException`` — este pacote
+    não depende de Click. Um comando de CLI que chamar :func:`gerar_hash`
+    diretamente precisa capturar esta exceção e relançar como
+    ``click.ClickException`` (ou equivalente), senão o operador recebe um
+    traceback cru em vez da mensagem de erro limpa que os apps já mostram
+    hoje.
+    """
 
 
 def validar_tamanho(senha: str) -> None:
@@ -31,5 +39,14 @@ def gerar_hash(senha: str) -> str:
     return generate_password_hash(senha)
 
 
-def conferir_hash(hash_: str, senha: str) -> bool:
+def conferir_hash(hash_: str | None, senha: str) -> bool:
+    """``False`` para hash ausente, nunca uma exceção.
+
+    Uma conta sem senha definida ainda (importação administrativa, conta só
+    de token, linha em meio a migração) tem ``hash_`` nulo ou vazio.
+    ``werkzeug.security.check_password_hash`` não tem essa guarda — chamar
+    direto derruba o login com 500 em vez de recusar a senha.
+    """
+    if not hash_:
+        return False
     return check_password_hash(hash_, senha)

@@ -5,26 +5,38 @@ divergia era a renderização (só uma categoria estilizada no MegaSena, erro
 saindo com a cor de sucesso) e a cobertura em respostas HTMX parciais (cada
 template do MegaSena reescrevia o bloco `hx-swap-oob` à mão). Este módulo dá
 os dois templates prontos; o app inclui, não reescreve.
+
+Um `Blueprint` do próprio Flask entrega template e CSS -- não um
+`ChoiceLoader` montado à mão nem uma rota que relê o arquivo do disco a cada
+requisição: `static_folder` já serve com cache condicional (ETag/304) de
+graça.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
-import jinja2
+from flask import Blueprint
 
 if TYPE_CHECKING:
     from flask import Flask
 
-_DIR = Path(__file__).resolve().parent
-
 TEMPLATE_PADRAO = "sharedauth/flash_messages.html"
 TEMPLATE_OOB = "sharedauth/flash_messages_oob.html"
 
+_MARCA_REGISTRO = "sharedauth_messages_registrado"
+
+_blueprint = Blueprint(
+    "sharedauth",
+    __name__,
+    template_folder="templates",
+    static_folder="static",
+    static_url_path="/sharedauth/static",
+)
+
 
 def registrar_mensagens(app: Flask) -> None:
-    """Torna os dois parciais e o CSS carregáveis pelo app que os inclui.
+    """Torna os dois parciais e o CSS disponíveis para o app.
 
     Uso no template base do app:
 
@@ -35,21 +47,14 @@ def registrar_mensagens(app: Flask) -> None:
 
         {% include "sharedauth/flash_messages_oob.html" %}
 
-    O prefixo ``sharedauth/`` isola os templates do pacote dos do app — um
-    ``ChoiceLoader`` com ``PrefixLoader`` por baixo, o jeito padrão de uma
-    extensão Flask trazer templates próprios sem colidir com os do app.
-    """
-    pacote_loader = jinja2.PrefixLoader(
-        {"sharedauth": jinja2.FileSystemLoader(str(_DIR / "templates"))}
-    )
-    app.jinja_loader = jinja2.ChoiceLoader([app.jinja_loader, pacote_loader])  # type: ignore[list-item]
+    O CSS fica em ``/sharedauth/static/flash_messages.css`` (ou
+    ``url_for("sharedauth.static", filename="flash_messages.css")``).
 
-    app.add_url_rule(
-        "/sharedauth/flash-messages.css",
-        endpoint="sharedauth.flash_messages_css",
-        view_func=lambda: (
-            (_DIR / "static" / "flash_messages.css").read_text(encoding="utf-8"),
-            200,
-            {"Content-Type": "text/css; charset=utf-8"},
-        ),
-    )
+    Chamar duas vezes no mesmo app é seguro — a segunda chamada não faz
+    nada, em vez de derrubar o app com o erro de rota duplicada que o
+    registro manual (sem este guard) causaria.
+    """
+    if app.extensions.get(_MARCA_REGISTRO):
+        return
+    app.extensions[_MARCA_REGISTRO] = True
+    app.register_blueprint(_blueprint)

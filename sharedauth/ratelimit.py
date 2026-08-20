@@ -18,9 +18,16 @@ if TYPE_CHECKING:
 
 LIMITE_LOGIN_PADRAO = "10 per minute"
 
-limiter = Limiter(key_func=get_remote_address)
-
 
 def iniciar_limiter(app: Flask) -> Limiter:
+    """Cria e inicializa uma instância própria para ``app``.
+
+    Deliberadamente **não** é um singleton de módulo: ``Limiter.init_app``
+    reconstrói o *storage* compartilhado a cada chamada. Um singleton
+    reaproveitado por dois apps no mesmo processo faz o segundo apagar os
+    contadores do primeiro — reproduzido de fato durante a revisão desta
+    biblioteca. Cada app recebe a sua própria instância.
+    """
+    limiter = Limiter(key_func=get_remote_address)
     limiter.init_app(app)
     return limiter

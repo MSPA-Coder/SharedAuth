@@ -38,3 +38,13 @@ def test_hash_e_verificacao_de_ponta_a_ponta() -> None:
 def test_hash_nunca_e_a_senha_em_texto_puro() -> None:
     hash_ = gerar_hash("Admin@26")
     assert "Admin@26" not in hash_
+
+
+def test_conferir_com_hash_none_devolve_falso_sem_levantar() -> None:
+    # Conta sem senha definida ainda (importação administrativa, conta só
+    # de token) -- recusar a senha, não derrubar o login com 500.
+    assert conferir_hash(None, "qualquer-senha") is False
+
+
+def test_conferir_com_hash_vazio_devolve_falso_sem_levantar() -> None:
+    assert conferir_hash("", "qualquer-senha") is False

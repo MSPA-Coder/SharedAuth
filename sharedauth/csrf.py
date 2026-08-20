@@ -16,9 +16,16 @@ from flask_wtf.csrf import CSRFProtect
 if TYPE_CHECKING:
     from flask import Flask
 
-csrf = CSRFProtect()
-
 
 def iniciar_csrf(app: Flask) -> CSRFProtect:
+    """Cria e inicializa uma instância própria para ``app``.
+
+    Deliberadamente **não** é um singleton de módulo: ``CSRFProtect`` guarda
+    o conjunto de views isentas (``.exempt()``) na própria instância, não por
+    app. Um singleton compartilhado vazaria a isenção de um app para
+    qualquer outro que rode no mesmo processo (dois apps Flask no mesmo
+    processo de teste, por exemplo) — cada app recebe a sua.
+    """
+    csrf = CSRFProtect()
     csrf.init_app(app)
     return csrf

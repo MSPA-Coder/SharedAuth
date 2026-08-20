@@ -19,6 +19,9 @@ if TYPE_CHECKING:
     from flask import Flask, Response
 
 
+_MARCA_REGISTRO = "sharedauth_access_registrado"
+
+
 def requer_login(
     app: Flask,
     *,
@@ -27,6 +30,7 @@ def requer_login(
     esta_autenticado: Callable[[], bool],
     prefixo_api: str | None = "/api/",
     usar_hx_redirect: bool = False,
+    chave_erro_api: str = "error",
 ) -> None:
     """Registra o ``before_request`` de padrão-nega.
 
@@ -42,7 +46,25 @@ def requer_login(
     - ``usar_hx_redirect=False`` (padrão) — 401 JSON quando o caminho começa
       com ``prefixo_api`` (o padrão do ControleRendaVariavel), redirect HTML
       nos demais casos.
+
+    ``chave_erro_api`` é a chave do corpo JSON do 401 — o padrão ``"error"``
+    (inglês) segue a convenção já em uso no ControleRendaVariavel, de onde
+    este comportamento foi extraído; um app com convenção própria pode
+    sobrescrever.
+
+    Levanta ``RuntimeError`` se chamada mais de uma vez no mesmo app: o
+    Flask não deduplica ``before_request``, e uma segunda chamada com
+    parâmetros diferentes tornaria a primeira silenciosamente vencedora para
+    qualquer rota que ela já resolvesse — perigoso demais para passar em
+    silêncio num controle de acesso.
     """
+    if app.extensions.get(_MARCA_REGISTRO):
+        raise RuntimeError(
+            "requer_login já foi registrado neste app. Chamar de novo "
+            "tornaria a primeira chamada silenciosamente vencedora para "
+            "parte das rotas — corrija o app para chamar uma vez só."
+        )
+    app.extensions[_MARCA_REGISTRO] = True
 
     @app.before_request
     def _requer_login() -> Response | None:
@@ -57,6 +79,9 @@ def requer_login(
             return resposta
 
         if prefixo_api and request.path.startswith(prefixo_api):
-            return jsonify(erro="Autenticação necessária."), 401
+            return jsonify({chave_erro_api: "Autenticação necessária."}), 401
 
-        return redirect(url_for(endpoint_login, next=request.full_path))
+        # request.full_path do Werkzeug sempre termina em "?", mesmo sem
+        # query string -- evitar isso aqui em vez de propagar "?next=/x%3F".
+        proximo = request.full_path if request.query_string else request.path
+        return redirect(url_for(endpoint_login, next=proximo))

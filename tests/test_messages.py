@@ -76,7 +76,24 @@ def test_bloco_oob_e_emitido_mesmo_sem_mensagem_nova() -> None:
 
 def test_css_e_servido() -> None:
     app = _app_com_rotas()
-    resposta = app.test_client().get("/sharedauth/flash-messages.css")
+    resposta = app.test_client().get("/sharedauth/static/flash_messages.css")
     assert resposta.status_code == 200
     assert "sharedauth-flash-success" in resposta.get_data(as_text=True)
     assert resposta.content_type.startswith("text/css")
+
+
+def test_css_servido_com_cache_condicional() -> None:
+    # É o que um Blueprint dá de graça e uma rota lambda não dava: ETag e
+    # suporte a 304, em vez de reler o arquivo do disco a cada requisição.
+    app = _app_com_rotas()
+    resposta = app.test_client().get("/sharedauth/static/flash_messages.css")
+    assert resposta.headers.get("ETag")
+
+
+def test_registrar_mensagens_duas_vezes_no_mesmo_app_nao_quebra() -> None:
+    app = Flask(__name__)
+    app.config["SECRET_KEY"] = "test-only-not-a-real-secret"
+    registrar_mensagens(app)
+    registrar_mensagens(app)  # não deve levantar
+    resposta = app.test_client().get("/sharedauth/static/flash_messages.css")
+    assert resposta.status_code == 200

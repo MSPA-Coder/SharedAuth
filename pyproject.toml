@@ -24,4 +24,4 @@ build-backend = "setuptools.build_meta"
 include = ["sharedauth*"]
 
 [tool.setuptools.package-data]
-sharedauth = ["messages/templates/*.html", "messages/static/*.css"]
+sharedauth = ["messages/templates/sharedauth/*.html", "messages/static/*.css"]

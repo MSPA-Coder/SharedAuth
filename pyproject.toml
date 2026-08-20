@@ -1,18 +1,26 @@
 [project]
 name = "sharedauth"
-version = "0.1.0"
-description = "Rotinas de login e mensagens compartilhadas entre os apps Flask do mantenedor"
+version = "0.2.0"
+description = "Rotinas de base compartilhadas entre os apps do mantenedor (login, mensagens, cabeçalhos, formatação)"
 requires-python = ">=3.13"
-dependencies = [
+# Núcleo sem dependência nenhuma, de propósito: `security` e `formatting` são
+# Python puro e o ControleBancario (Django) instala só isto, sem arrastar um
+# framework web que ele não usa. Tudo que fala com Flask está no extra abaixo.
+dependencies = []
+
+[project.optional-dependencies]
+flask = [
     # Faixas alinhadas às já em produção no MegaSena e no ControleRendaVariavel
     # -- ver AGENTS.md dos quatro projetos: alargar o teto, manter o piso.
     "Flask>=3.1.3,<4",
     "Flask-WTF>=1.2.2,<2",
     "Flask-Limiter>=3.0,<5",
+    # Já vem como dependência do Flask; declarado porque `passwords` importa
+    # `werkzeug.security` diretamente e não deve depender de um transitivo.
+    "Werkzeug>=3.1,<4",
 ]
-
-[project.optional-dependencies]
 dev = [
+    "sharedauth[flask]",
     "pytest>=8.3,<10",
 ]
 

@@ -1,0 +1,46 @@
+/* As 4 categorias de mensagem, no padrão do projeto mais completo dos
+   quatro (ControleBancario). Os outros três tinham só uma ou duas
+   estilizadas -- é o achado que motivou este arquivo existir.
+
+   Cores em variáveis com fallback: um app com paleta própria sobrescreve
+   --sharedauth-* nas suas próprias tokens; sem isso, os padrões abaixo
+   servem sozinhos. */
+
+.sharedauth-flash-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.sharedauth-flash {
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
+  border: 1px solid transparent;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+
+.sharedauth-flash-success {
+  background: var(--sharedauth-success-bg, #e6f4ea);
+  border-color: var(--sharedauth-success-border, #a8d5b5);
+  color: var(--sharedauth-success-fg, #1e4620);
+}
+
+.sharedauth-flash-error {
+  background: var(--sharedauth-error-bg, #fdecea);
+  border-color: var(--sharedauth-error-border, #f3aca6);
+  color: var(--sharedauth-error-fg, #5f1a17);
+}
+
+.sharedauth-flash-warning {
+  background: var(--sharedauth-warning-bg, #fff8e1);
+  border-color: var(--sharedauth-warning-border, #f0d896);
+  color: var(--sharedauth-warning-fg, #5c4500);
+}
+
+.sharedauth-flash-info {
+  background: var(--sharedauth-info-bg, #e8f0fe);
+  border-color: var(--sharedauth-info-border, #a8c7f0);
+  color: var(--sharedauth-info-fg, #1a3a6b);
+}

@@ -1,0 +1,13 @@
+{#- Bloco normal, incluído no template base. Uma categoria sem estilo
+    dedicado (algo além de success/error/warning/info) cai em "info". -#}
+{% with mensagens = get_flashed_messages(with_categories=True) %}
+{% if mensagens %}
+<div id="sharedauth-flash-messages" class="sharedauth-flash-messages">
+  {% for categoria, mensagem in mensagens %}
+  <div class="sharedauth-flash sharedauth-flash-{{ categoria if categoria in ('success', 'error', 'warning', 'info') else 'info' }}" role="alert">
+    {{ mensagem }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endwith %}

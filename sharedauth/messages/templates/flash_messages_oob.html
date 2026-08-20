@@ -1,0 +1,16 @@
+{#- Variante para resposta parcial HTMX: troca o mesmo bloco #sharedauth-
+    flash-messages que já está na página, sem recarregar nada.
+
+    Emitida sempre, mesmo sem mensagem nova — senão uma mensagem antiga
+    ficaria presa na tela depois de uma ação que não gerou nenhuma. Era
+    exatamente o problema que forçava cada template do MegaSena a reescrever
+    este bloco à mão. -#}
+{% with mensagens = get_flashed_messages(with_categories=True) %}
+<div id="sharedauth-flash-messages" class="sharedauth-flash-messages" hx-swap-oob="true">
+  {% for categoria, mensagem in mensagens %}
+  <div class="sharedauth-flash sharedauth-flash-{{ categoria if categoria in ('success', 'error', 'warning', 'info') else 'info' }}" role="alert">
+    {{ mensagem }}
+  </div>
+  {% endfor %}
+</div>
+{% endwith %}

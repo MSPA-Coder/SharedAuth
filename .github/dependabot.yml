@@ -1,0 +1,38 @@
+# Este era o ÚNICO dos seis repositórios sem dependabot.
+#
+# E era o pior lugar para essa lacuna estar: o SharedAuth é a única dependência
+# compartilhada pelos quatro aplicativos, portanto o único ponto de cadeia de
+# suprimento do conjunto. Um problema aqui chega nos quatro de uma vez, e era
+# justamente o repositório que ninguém vigiava.
+#
+# Mesma forma dos irmãos, menos o ecossistema `docker`: aqui não há imagem.
+#
+# `versioning-strategy: widen` é a política do mantenedor — alargar o teto e
+# manter o piso, em vez de fixar versão exata. Numa biblioteca isso importa
+# mais que nos aplicativos: um piso alto demais aqui obriga os quatro
+# consumidores a subir junto.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    versioning-strategy: widen
+    schedule:
+      interval: weekly
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]

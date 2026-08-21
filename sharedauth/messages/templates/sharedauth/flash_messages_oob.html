@@ -4,12 +4,19 @@
     Emitida sempre, mesmo sem mensagem nova — senão uma mensagem antiga
     ficaria presa na tela depois de uma ação que não gerou nenhuma. Era
     exatamente o problema que forçava cada template do MegaSena a reescrever
-    este bloco à mão. -#}
+    este bloco à mão.
+
+    Mantido em par com `flash_messages.html`: a marcação interna dos dois é a
+    mesma, e divergir aqui faria a mensagem mudar de aparência só nas ações
+    HTMX -- o tipo de diferença que ninguém nota até virar reclamação. -#}
 {% with mensagens = get_flashed_messages(with_categories=True) %}
 <div id="sharedauth-flash-messages" class="sharedauth-flash-messages" hx-swap-oob="true">
   {% for categoria, mensagem in mensagens %}
-  <div class="sharedauth-flash sharedauth-flash-{{ categoria if categoria in ('success', 'error', 'warning', 'info') else 'info' }}" role="alert">
-    {{ mensagem }}
+  {%- set severidade = categoria if categoria in ('success', 'error', 'warning', 'info') else 'info' -%}
+  <div class="sharedauth-flash sharedauth-flash-{{ severidade }} sa-{{ severidade }}"
+       role="{{ 'alert' if severidade in ('error', 'warning') else 'status' }}">
+    {{ sharedauth_icone(severidade) }}
+    <span class="sharedauth-flash-texto">{{ mensagem }}</span>
   </div>
   {% endfor %}
 </div>

@@ -1,11 +1,25 @@
 {#- Bloco normal, incluído no template base. Uma categoria sem estilo
-    dedicado (algo além de success/error/warning/info) cai em "info". -#}
+    dedicado (algo além de success/error/warning/info) cai em "info".
+
+    O ícone vem de `sharedauth_icone`, registrado por
+    `registrar_mensagens()`. É SVG embutido, não `<img src="data:...">`:
+    a CSP dos apps fecha `img-src` em `'self'`, e SVG no documento não é
+    requisição. O traçado é o mesmo do modal e do toast -- um teste do
+    SharedAuth confere que as duas cópias não divergiram.
+
+    `sa-<categoria>` além de `sharedauth-flash-<categoria>`: a primeira é a
+    classe que colore o ícone (definida em `sharedauth-ui.css`), a segunda é
+    a que já colore o banner. Um app que inclua só o CSS de mensagens
+    continua funcionando; o ícone é que fica sem cor própria. -#}
 {% with mensagens = get_flashed_messages(with_categories=True) %}
 {% if mensagens %}
 <div id="sharedauth-flash-messages" class="sharedauth-flash-messages">
   {% for categoria, mensagem in mensagens %}
-  <div class="sharedauth-flash sharedauth-flash-{{ categoria if categoria in ('success', 'error', 'warning', 'info') else 'info' }}" role="alert">
-    {{ mensagem }}
+  {%- set severidade = categoria if categoria in ('success', 'error', 'warning', 'info') else 'info' -%}
+  <div class="sharedauth-flash sharedauth-flash-{{ severidade }} sa-{{ severidade }}"
+       role="{{ 'alert' if severidade in ('error', 'warning') else 'status' }}">
+    {{ sharedauth_icone(severidade) }}
+    <span class="sharedauth-flash-texto">{{ mensagem }}</span>
   </div>
   {% endfor %}
 </div>

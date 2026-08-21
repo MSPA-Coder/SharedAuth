@@ -1,0 +1,258 @@
+/* Confirmação e aviso — aparência comum aos quatro apps.
+ *
+ * As cores vêm das MESMAS variáveis que o `flash_messages.css` deste pacote já
+ * usa (`--sharedauth-<severidade>-<parte>`). Não é repetição: um app que
+ * sobrescreve a paleta numa folha própria acerta o banner e o modal de uma vez,
+ * em vez de acertar um e esquecer o outro -- que é exatamente como o login do
+ * ControleBancario congelou num tema enquanto o resto do app mudava.
+ *
+ * Todo valor tem fallback. Um app que não sobrescreve nada continua com
+ * aparência coerente; um app com paleta própria só declara as variáveis.
+ *
+ * NENHUM `url()` aqui. Ícone é SVG construído no DOM pelo JS, e não
+ * `background-image: url("data:image/svg+xml,...")` -- essa forma cairia no
+ * `img-src 'self'` da CSP de dois dos quatro apps, e abrir `data:` para todos
+ * seria a união das políticas, mais permissiva que qualquer uma das quatro.
+ */
+
+/* ------------------------------------------------------------------ */
+/* Superfície e texto                                                  */
+/* ------------------------------------------------------------------ */
+.sa-modal,
+.sa-aviso {
+  background: var(--sharedauth-surface, #ffffff);
+  color: var(--sharedauth-text, #1f2430);
+  border: 1px solid var(--sharedauth-border, #d5d9e0);
+  border-radius: var(--sharedauth-radius, 0.5rem);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 18%);
+}
+
+/* ------------------------------------------------------------------ */
+/* Modal                                                              */
+/* ------------------------------------------------------------------ */
+
+/* `:not([hidden])` e não `.aberto`: o JS alterna a propriedade `hidden`, que é
+   a forma padrão do DOM. Sem o `:not`, um `display: flex` aqui venceria o
+   `display: none` que o navegador dá a `[hidden]`, e o modal ficaria visível
+   desde o carregamento da página. */
+.sa-modal-fundo:not([hidden]) {
+  display: flex;
+}
+
+.sa-modal-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 45%);
+}
+
+/* Trava a rolagem do fundo enquanto o diálogo está aberto: rolar a página
+   atrás de um modal desorienta e, num diálogo de exclusão, faz perder de vista
+   a linha que se estava olhando. */
+.sa-modal-aberto {
+  overflow: hidden;
+}
+
+.sa-modal {
+  width: 100%;
+  max-width: 28rem;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.sa-modal-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.sa-modal-titulo {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.sa-modal-texto {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--sharedauth-text-suave, #4a5160);
+  /* `pre-line` porque a mensagem vem do servidor e às vezes tem duas frases
+     separadas por quebra de linha -- respeitar isso é de graça. */
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.sa-modal-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* ------------------------------------------------------------------ */
+/* Botões                                                             */
+/* ------------------------------------------------------------------ */
+.sa-botao {
+  font: inherit;
+  padding: 0.5rem 0.9375rem;
+  border-radius: var(--sharedauth-radius, 0.375rem);
+  border: 1px solid transparent;
+  cursor: pointer;
+  min-height: 2.25rem;
+}
+
+/* Contorno de foco visível e nunca removido: o diálogo abre com o foco no
+   "Cancelar", e quem navega por teclado precisa ver onde ele está. */
+.sa-botao:focus-visible,
+.sa-aviso-fechar:focus-visible {
+  outline: 2px solid var(--sharedauth-foco, #2563eb);
+  outline-offset: 2px;
+}
+
+.sa-botao-neutro {
+  background: var(--sharedauth-neutro-bg, #eef0f4);
+  border-color: var(--sharedauth-border, #d5d9e0);
+  color: var(--sharedauth-text, #1f2430);
+}
+
+.sa-botao-neutro:hover {
+  background: var(--sharedauth-neutro-bg-hover, #e2e6ec);
+}
+
+/* O botão de ação assume a cor da severidade do diálogo. Num diálogo de
+   exclusão ele fica vermelho sem precisar de classe extra no HTML. */
+.sa-botao-acao {
+  background: var(--sa-acao-bg, #2563eb);
+  border-color: var(--sa-acao-bg, #2563eb);
+  color: #ffffff;
+}
+
+.sa-botao-acao:hover {
+  filter: brightness(0.92);
+}
+
+/* ------------------------------------------------------------------ */
+/* Severidades                                                        */
+/*                                                                    */
+/* `--sa-acao-bg` é definida por severidade e consumida pelo botão de ação;   */
+/* é o que liga a cor do botão à gravidade do que ele faz.             */
+/* ------------------------------------------------------------------ */
+.sa-success {
+  --sa-acao-bg: var(--sharedauth-success-acao, #1e7d34);
+  border-color: var(--sharedauth-success-border, #a8d5b5);
+}
+.sa-success .sa-icone { color: var(--sharedauth-success-fg, #1e4620); }
+
+.sa-error {
+  --sa-acao-bg: var(--sharedauth-error-acao, #b3261e);
+  border-color: var(--sharedauth-error-border, #f3aca6);
+}
+.sa-error .sa-icone { color: var(--sharedauth-error-fg, #5f1a17); }
+
+.sa-warning {
+  --sa-acao-bg: var(--sharedauth-warning-acao, #8a6100);
+  border-color: var(--sharedauth-warning-border, #f0d896);
+}
+.sa-warning .sa-icone { color: var(--sharedauth-warning-fg, #5c4500); }
+
+.sa-info {
+  --sa-acao-bg: var(--sharedauth-info-acao, #1a56b8);
+  border-color: var(--sharedauth-info-border, #a8c7f0);
+}
+.sa-info .sa-icone { color: var(--sharedauth-info-fg, #1a3a6b); }
+
+.sa-icone {
+  width: 1.375rem;
+  height: 1.375rem;
+  flex: 0 0 auto;
+}
+
+/* ------------------------------------------------------------------ */
+/* Avisos (toast)                                                     */
+/* ------------------------------------------------------------------ */
+.sa-avisos {
+  position: fixed;
+  z-index: 1001; /* acima do modal: um erro do envio precisa ser visto */
+  right: 1rem;
+  bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: min(24rem, calc(100vw - 2rem));
+  /* O container não intercepta clique; cada aviso volta a interceptar. Sem
+     isto, uma pilha vazia (mas presente) bloquearia cliques no canto da tela. */
+  pointer-events: none;
+}
+
+.sa-aviso {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+
+.sa-aviso.sa-success { background: var(--sharedauth-success-bg, #e6f4ea); color: var(--sharedauth-success-fg, #1e4620); }
+.sa-aviso.sa-error   { background: var(--sharedauth-error-bg,   #fdecea); color: var(--sharedauth-error-fg,   #5f1a17); }
+.sa-aviso.sa-warning { background: var(--sharedauth-warning-bg, #fff8e1); color: var(--sharedauth-warning-fg, #5c4500); }
+.sa-aviso.sa-info    { background: var(--sharedauth-info-bg,    #e8f0fe); color: var(--sharedauth-info-fg,    #1a3a6b); }
+
+.sa-aviso-texto {
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.sa-aviso-fechar {
+  font: inherit;
+  font-size: 1.125rem;
+  line-height: 1;
+  padding: 0 0.125rem;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  /* Área de toque de 24px sem aumentar o desenho: um "×" de 12px é impossível
+     de acertar no telefone. */
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+}
+
+/* Animação de entrada, e nenhuma para quem pediu para não ter. */
+@media (prefers-reduced-motion: no-preference) {
+  .sa-aviso {
+    animation: sa-entrada 160ms ease-out;
+  }
+  .sa-modal {
+    animation: sa-entrada 140ms ease-out;
+  }
+}
+
+@keyframes sa-entrada {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Em tela estreita o diálogo ocupa a largura e os botões empilham na ordem
+   inversa, deixando o destrutivo longe do polegar. */
+@media (max-width: 26rem) {
+  .sa-modal-acoes {
+    flex-direction: column-reverse;
+  }
+  .sa-modal-acoes .sa-botao {
+    width: 100%;
+  }
+  .sa-avisos {
+    left: 1rem;
+    right: 1rem;
+    max-width: none;
+  }
+}

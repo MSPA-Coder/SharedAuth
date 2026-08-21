@@ -44,3 +44,30 @@
   border-color: var(--sharedauth-info-border, #a8c7f0);
   color: var(--sharedauth-info-fg, #1a3a6b);
 }
+
+/* Layout com ícone (desde 2026-08-21). O ícone é SVG embutido pelo template,
+   via `sharedauth_icone`; a COR dele vem da classe `sa-<severidade>` definida
+   em `sharedauth/ui/estatico/sharedauth-ui.css`.
+
+   Um app que inclua só este arquivo continua com o banner certo -- o ícone
+   apenas herda a cor do texto em vez da cor da severidade. Não quebra. */
+
+.sharedauth-flash {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.sharedauth-flash-texto {
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+/* Repetido aqui porque este arquivo pode ser incluído sozinho, sem o CSS de
+   interface. Mesmos valores; se um dia divergirem, o ícone muda de tamanho
+   entre o banner e o toast, que é visível e portanto autocorretivo. */
+.sharedauth-flash .sa-icone {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+}

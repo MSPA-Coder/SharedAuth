@@ -54,6 +54,13 @@ def registrar_mensagens(app: Flask) -> None:
     nada, em vez de derrubar o app com o erro de rota duplicada que o
     registro manual (sem este guard) causaria.
     """
+    # O banner usa `sharedauth_icone`. Registrado aqui tambem porque um app
+    # pode incluir as mensagens sem registrar o pacote de interface -- e a
+    # funcao e idempotente, entao registrar duas vezes nao custa nada.
+    from ..ui import registrar_icone_jinja
+
+    registrar_icone_jinja(app)
+
     if app.extensions.get(_MARCA_REGISTRO):
         return
     app.extensions[_MARCA_REGISTRO] = True

@@ -1,6 +1,6 @@
 [project]
 name = "sharedauth"
-version = "0.2.0"
+version = "0.3.0"
 description = "Rotinas de base compartilhadas entre os apps do mantenedor (login, mensagens, cabeçalhos, formatação)"
 requires-python = ">=3.13"
 # Núcleo sem dependência nenhuma, de propósito: `security` e `formatting` são
@@ -35,4 +35,11 @@ build-backend = "setuptools.build_meta"
 include = ["sharedauth*"]
 
 [tool.setuptools.package-data]
-sharedauth = ["messages/templates/sharedauth/*.html", "messages/static/*.css"]
+sharedauth = [
+  "messages/templates/sharedauth/*.html",
+  "messages/static/*.css",
+  # O CSS e o JS de `ui/` sao o produto do pacote, nao acessorio: sem
+  # eles a instalacao traz um modulo Python que nao serve para nada.
+  "ui/estatico/*.css",
+  "ui/estatico/*.js",
+]

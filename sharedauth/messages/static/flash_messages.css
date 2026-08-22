@@ -1,8 +1,5 @@
-/* As 4 categorias de mensagem, no padrão do projeto mais completo dos
-   quatro (ControleBancario). Os outros três tinham só uma ou duas
-   estilizadas -- é o achado que motivou este arquivo existir.
-
-   Cores em variáveis com fallback: um app com paleta própria sobrescreve
+/* As quatro categorias de mensagem usam cores em variáveis com fallback.
+   Um app com paleta própria sobrescreve
    --sharedauth-* nas suas próprias tokens; sem isso, os padrões abaixo
    servem sozinhos. */
 
@@ -45,7 +42,7 @@
   color: var(--sharedauth-info-fg, #1a3a6b);
 }
 
-/* Layout com ícone (desde 2026-08-21). O ícone é SVG embutido pelo template,
+/* O ícone é SVG embutido pelo template,
    via `sharedauth_icone`; a COR dele vem da classe `sa-<severidade>` definida
    em `sharedauth/ui/estatico/sharedauth-ui.css`.
 

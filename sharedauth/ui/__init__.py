@@ -1,13 +1,7 @@
-"""Componentes de interface comuns aos quatro apps: confirmação e aviso.
+"""Componentes de interface comuns para confirmação e aviso.
 
-POR QUE ISTO NÃO É TEMPLATE DE FRAMEWORK. O projeto de referência de interface
-é o ControleBancario, que é o único Django e o único que instala o `sharedauth`
-**sem** o extra ``[flask]``. Um parcial Jinja aqui seria inútil para ele -- foi
-exatamente assim que o ``sharedauth.messages`` parou na fronteira do framework,
-e como o ``/health`` unificado deixou o Django de fora com o defeito idêntico.
-
-Então o que este pacote entrega é CSS e JavaScript puro, mais um caminho de
-arquivo. Quem sabe servir estático é cada framework, e os dois já sabem:
+O módulo entrega CSS e JavaScript puros, além do caminho dos assets. Cada
+framework mantém a responsabilidade de servir arquivos estáticos:
 
 **Flask** -- ``registrar_ui(app)`` pendura um Blueprint que serve os arquivos
 com ETag/304 de graça::
@@ -31,9 +25,8 @@ com ETag/304 de graça::
     <link rel="stylesheet" href="{% static 'sharedauth/sharedauth-ui.css' %}">
     <script src="{% static 'sharedauth/sharedauth-ui.js' %}" defer></script>
 
-O import do Flask é LOCAL, dentro de :func:`registrar_ui`. Importar este módulo
-não pode exigir Flask, senão o Django quebra no import -- que é a única coisa
-que realmente importa aqui.
+O import do Flask é local a :func:`registrar_ui`; importar este módulo não
+carrega Flask.
 """
 
 from __future__ import annotations
@@ -51,9 +44,7 @@ CAMINHO_ESTATICO: Path = Path(__file__).resolve().parent / "estatico"
 ARQUIVO_CSS = "sharedauth-ui.css"
 ARQUIVO_JS = "sharedauth-ui.js"
 
-#: As quatro severidades. Os nomes são os mesmos que o `flash()` do Flask e o
-#: `django.contrib.messages` já usam -- não uma taxonomia nova. Convergir em
-#: nome existente evita uma tabela de tradução em cada app.
+#: Severidades compatíveis com `flash()` e `django.contrib.messages`.
 SEVERIDADES = ("success", "error", "warning", "info")
 
 #: Traçado de cada ícone, por severidade.
@@ -62,17 +53,14 @@ SEVERIDADES = ("success", "error", "warning", "info")
 #: em ``estatico/sharedauth-ui.js``, para o modal e o toast montados no
 #: navegador. O JS não pode importar Python, então a cópia é inevitável.
 #:
-#: O que NÃO é inevitável é a cópia divergir. ``tests/test_ui.py`` extrai o
-#: traçado do JS e compara com este dicionário; se alguém alterar um ícone num
-#: lado só, o teste reprova. Duplicação conferida é dívida controlada;
-#: duplicação não conferida é como o login congelou num tema enquanto o resto
-#: do app mudava.
+#: ``tests/test_ui.py`` compara o traçado do JS com este dicionário para manter
+#: as duas representações sincronizadas.
 TRACOS_ICONE: dict[str, tuple[str, ...]] = {
     "success": ("M20 6L9 17l-5-5",),
     # Circulo com X, e nao o mesmo triangulo do `warning`: se as duas
     # severidades so diferem pela COR, quem nao distingue vermelho de ambar nao
     # distingue "atencao" de "perigo". Forma diferente resolve sem depender de
-    # cor -- e so apareceu ao ver os quatro icones lado a lado.
+    # cor.
     "error": (
         "M12 22a10 10 0 100-20 10 10 0 000 20z",
         "M15 9l-6 6",
@@ -100,9 +88,8 @@ def svg_icone(severidade: str) -> str:
     requisição e não passa pelo ``img-src 'self'`` da CSP. Traço em
     ``currentColor``, então a cor vem da classe de severidade em volta.
 
-    Severidade desconhecida cai em ``info`` -- a mesma tolerância que os
-    templates de mensagem já tinham, e melhor que quebrar a página por causa de
-    um `flash()` com categoria própria.
+    Severidade desconhecida cai em ``info``, como nos templates de mensagem,
+    evitando quebrar a página por causa de um `flash()` com categoria própria.
     """
     tracos = TRACOS_ICONE.get(severidade, TRACOS_ICONE["info"])
     caminhos = "".join(f'<path d="{d}"/>' for d in tracos)
@@ -144,7 +131,7 @@ def registrar_ui(app: Flask) -> None:
 
     # Nome diferente do blueprint de `messages` (que se chama `sharedauth`):
     # dois blueprints com o mesmo nome no mesmo app é erro em tempo de
-    # registro, e os dois pacotes são registrados juntos nos três apps Flask.
+    # registro.
     app.register_blueprint(
         Blueprint(
             "sharedauth_ui",

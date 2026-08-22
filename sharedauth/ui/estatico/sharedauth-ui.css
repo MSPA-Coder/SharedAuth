@@ -1,18 +1,15 @@
-/* Confirmação e aviso — aparência comum aos quatro apps.
+/* Confirmação e aviso — aparência comum aos consumidores.
  *
  * As cores vêm das MESMAS variáveis que o `flash_messages.css` deste pacote já
  * usa (`--sharedauth-<severidade>-<parte>`). Não é repetição: um app que
- * sobrescreve a paleta numa folha própria acerta o banner e o modal de uma vez,
- * em vez de acertar um e esquecer o outro -- que é exatamente como o login do
- * ControleBancario congelou num tema enquanto o resto do app mudava.
+ * sobrescreve a paleta numa folha própria altera banner e modal de uma vez.
  *
  * Todo valor tem fallback. Um app que não sobrescreve nada continua com
  * aparência coerente; um app com paleta própria só declara as variáveis.
  *
  * NENHUM `url()` aqui. Ícone é SVG construído no DOM pelo JS, e não
  * `background-image: url("data:image/svg+xml,...")` -- essa forma cairia no
- * `img-src 'self'` da CSP de dois dos quatro apps, e abrir `data:` para todos
- * seria a união das políticas, mais permissiva que qualquer uma das quatro.
+ * `img-src 'self'` da CSP; abrir `data:` tornaria a política mais permissiva.
  */
 
 /* ------------------------------------------------------------------ */

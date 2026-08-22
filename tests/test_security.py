@@ -20,8 +20,7 @@ def _cabecalhos(app: Flask) -> dict[str, str]:
 
 
 def test_csp_padrao_nao_permite_imagem_data_uri() -> None:
-    # A união das quatro políticas seria mais permissiva que qualquer uma
-    # delas; o padrão tem que ser a mais fechada.
+    # O padrão deve permanecer fechado; exceções são explícitas.
     assert "img-src 'self';" in CONTENT_SECURITY_POLICY
     assert "data:" not in CONTENT_SECURITY_POLICY
 
@@ -29,7 +28,7 @@ def test_csp_padrao_nao_permite_imagem_data_uri() -> None:
 def test_csp_com_data_uri_abre_so_as_imagens() -> None:
     csp = montar_csp(imagens_data_uri=True)
     assert "img-src 'self' data:;" in csp
-    assert "font-src 'self';" in csp  # o `data:` do ControleBancario era sobra
+    assert "font-src 'self';" in csp
     assert csp.count("data:") == 1
 
 
@@ -58,8 +57,7 @@ def test_nenhum_unsafe_inline_em_nenhuma_variante() -> None:
 
 
 def test_permissions_policy_traz_browsing_topics(app: Flask) -> None:
-    # Veio do Flask-Talisman no ControleRendaVariavel. Sobreviveu à saída do
-    # Talisman porque é estritamente mais restritivo que não declarar nada.
+    # A diretiva é mais restritiva que não declarar política para Topics API.
     registrar_cabecalhos(app)
     politica = _cabecalhos(app)["Permissions-Policy"]
     for diretiva in ("camera=()", "microphone=()", "geolocation=()", "browsing-topics=()"):
@@ -75,8 +73,7 @@ def test_registra_todos_os_cabecalhos_no_app(app: Flask) -> None:
 
 
 def test_registra_em_blueprint_valendo_para_o_app_inteiro(app: Flask) -> None:
-    # O MegaSena pendura no blueprint principal, não no app. O efeito precisa
-    # alcançar rotas que não são do blueprint.
+    # O registro em blueprint precisa alcançar rotas fora dele.
     bp = Blueprint("principal", __name__)
     registrar_cabecalhos(bp, imagens_data_uri=True)
     app.register_blueprint(bp)

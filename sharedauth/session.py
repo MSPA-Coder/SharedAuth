@@ -1,9 +1,7 @@
-"""Configuração de sessão/cookie — a parte que os quatro apps já faziam quase
-idêntica, cada um escrevendo as mesmas seis linhas de novo.
+"""Configuração compartilhada de cookies de sessão e de permanência.
 
 Não decide `SECRET_KEY` nem string de conexão: isso é bootstrap específico de
-cada app (arquivo de segredo Docker, variável de ambiente própria) e continua
-lá. Este módulo só resolve as chaves de config do Flask relacionadas a cookie
+do consumidor. Este módulo só resolve as chaves de config do Flask relacionadas a cookie
 de sessão.
 """
 
@@ -26,8 +24,8 @@ def configurar_sessao(
     """Aplica o padrão comum: HttpOnly, SameSite=Lax, Secure se HTTPS.
 
     ``https_obrigatorio`` normalmente vem da mesma flag de ambiente
-    (``*_FORCE_HTTPS``) que cada app já lê para decidir redirecionamento e
-    HSTS — passe o valor já resolvido, este módulo não lê ambiente sozinho.
+    que o consumidor usa para decidir redirecionamento e HSTS; passe o valor
+    já resolvido, pois este módulo não lê ambiente sozinho.
     """
     app.config["SESSION_COOKIE_NAME"] = nome_cookie
     app.config["SESSION_COOKIE_HTTPONLY"] = True

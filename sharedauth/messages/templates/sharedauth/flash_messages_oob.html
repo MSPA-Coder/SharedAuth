@@ -1,14 +1,11 @@
 {#- Variante para resposta parcial HTMX: troca o mesmo bloco #sharedauth-
     flash-messages que já está na página, sem recarregar nada.
 
-    Emitida sempre, mesmo sem mensagem nova — senão uma mensagem antiga
-    ficaria presa na tela depois de uma ação que não gerou nenhuma. Era
-    exatamente o problema que forçava cada template do MegaSena a reescrever
-    este bloco à mão.
+    Emitida sempre, mesmo sem mensagem nova, para remover da tela mensagens
+    que deixaram de existir.
 
     Mantido em par com `flash_messages.html`: a marcação interna dos dois é a
-    mesma, e divergir aqui faria a mensagem mudar de aparência só nas ações
-    HTMX -- o tipo de diferença que ninguém nota até virar reclamação. -#}
+    mesma, garantindo aparência consistente também em ações HTMX. -#}
 {% with mensagens = get_flashed_messages(with_categories=True) %}
 <div id="sharedauth-flash-messages" class="sharedauth-flash-messages" hx-swap-oob="true">
   {% for categoria, mensagem in mensagens %}

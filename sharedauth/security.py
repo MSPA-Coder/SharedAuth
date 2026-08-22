@@ -1,19 +1,7 @@
-"""Cabeçalhos defensivos e Content-Security-Policy — um conjunto, quatro apps.
+"""Cabeçalhos defensivos e Content-Security-Policy compartilhados.
 
-O comentário que existia acima deste dicionário no ConfortoTermico e no
-MegaSena dizia, palavra por palavra nos dois, que "manter igual em todos é o
-que permite auditar um e confiar nos demais". O comentário foi copiado junto
-com o código, e mesmo assim as cópias divergiram: o ControleBancario liberava
-`font-src data:` sem ter nenhuma fonte embutida, e o ControleRendaVariavel
-declarava um `Permissions-Policy` com uma diretiva a mais que os outros três.
-É exatamente o tipo de deriva silenciosa que só some quando existe um lugar
-só onde o valor é escrito.
-
-**Este módulo é Python puro — não importa Flask nem Werkzeug em tempo de
-execução.** Isso é deliberado: o ControleBancario é Django e precisa
-importar :data:`SECURITY_HEADERS` e :func:`montar_csp` sem arrastar um
-framework web inteiro que ele não usa. Só :func:`registrar_cabecalhos` fala
-com o Flask, e ela recebe o app pronto em vez de importá-lo.
+O módulo é Python puro e não importa Flask ou Werkzeug em tempo de execução.
+``registrar_cabecalhos`` recebe um alvo por tipagem estrutural.
 """
 
 from __future__ import annotations
@@ -26,14 +14,12 @@ if TYPE_CHECKING:  # pragma: no cover - só para tipagem
 # `Referrer-Policy` é `same-origin`, não `no-referrer`: sob `no-referrer` o
 # navegador serializa o cabeçalho `Origin` como `null` também em POST de mesma
 # origem (Fetch spec), e qualquer verificação de CSRF que consulte `Origin` —
-# como a do Django, no projeto irmão — passa a recusar a requisição com o
-# token correto. `same-origin` não vaza referrer para fora da origem, que é o
+# como verificações baseadas em `Origin` — passa a recusar a requisição com o
+# token correto. `same-origin` não vaza referrer para fora da origem e
 # que importa, e preserva o `Origin`.
 #
-# `browsing-topics=()` veio do ControleRendaVariavel, onde o Flask-Talisman o
-# escrevia sozinho. É estritamente mais restritivo que não declarar nada
-# (recusa a Topics API do Chrome), então subiu para o conjunto comum em vez de
-# ser descartado junto com o Talisman.
+# `browsing-topics=()` recusa a Topics API do Chrome e é mais restritivo que
+# omitir a diretiva.
 SECURITY_HEADERS: dict[str, str] = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
@@ -47,21 +33,14 @@ SECURITY_HEADERS: dict[str, str] = {
 
 
 def montar_csp(*, imagens_data_uri: bool = False) -> str:
-    """Monta a política. O padrão é o mais fechado que os apps toleram.
+    """Monta uma política fechada por padrão.
 
-    Nenhum dos apps usa `<style>`, `style=` ou `<script>` inline, então
-    `style-src`/`script-src` fecham em `'self'` sem exceção: um XSS refletido
-    não consegue injetar nem estilo nem script. Quem quiser altura de barra
-    proporcional num gráfico usa classe CSS estática, como o MegaSena passou a
-    fazer — não mutação de estilo em runtime.
+    `style-src` e `script-src` fecham em `'self'`: consumidores devem usar
+    classes CSS e scripts externos, sem estilo ou script inline.
 
     ``imagens_data_uri`` abre `img-src` para `data:`. **Só ligue com motivo
-    escrito no ponto da chamada.** Hoje o motivo real é um só: MegaSena e
-    ControleBancario declaram o favicon como SVG embutido no `<link rel=icon>`
-    do `base.html`. ConfortoTermico e ControleRendaVariavel não têm favicon
-    nenhum e ficam com a política fechada — consolidar as quatro políticas
-    numa só não pode virar a união delas, que seria mais permissiva que
-    qualquer uma das quatro.
+    escrito no ponto da chamada.** Consumidores sem essa necessidade devem
+    manter a política fechada em vez de adotar uma união mais permissiva.
     """
     img_src = "'self' data:" if imagens_data_uri else "'self'"
     return "; ".join(
@@ -91,10 +70,8 @@ def registrar_cabecalhos(
 ) -> None:
     """Aplica :data:`SECURITY_HEADERS` e a CSP em toda resposta do app.
 
-    Aceita um ``Flask`` ou um ``Blueprint``: o MegaSena pendura os cabeçalhos
-    no blueprint principal (`after_app_request`), os outros dois no app
-    (`after_request`). O efeito é o mesmo — toda resposta da aplicação — e não
-    vale forçar os três a mudarem a forma de registrar por causa disso.
+    Aceita um ``Flask`` ou um ``Blueprint`` e aplica os cabeçalhos a toda
+    resposta da aplicação.
 
     Usa ``setdefault``: se o app já decidiu um valor para aquela resposta
     específica (uma rota que precise de `Cache-Control` próprio, por exemplo),

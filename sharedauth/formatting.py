@@ -1,22 +1,8 @@
-"""Números e dinheiro no padrão brasileiro — a mesma função, escrita três vezes.
+"""Formatação de números e dinheiro no padrão brasileiro.
 
-O ControleBancario e o ControleRendaVariavel tinham a mesma rotina copiada
-caractere por caractere, inclusive o truque de usar ``\\x00`` como marcador
-temporário para trocar ponto e vírgula de lugar sem passar duas vezes pelo
-mesmo caractere. O MegaSena tinha uma terceira variante, mais pobre, que nem
-tratava centavos. Nenhuma das três estava errada; elas simplesmente foram
-escritas em momentos diferentes, sem nunca terem sido comparadas.
-
-**O que este módulo não faz:** decidir sozinho como cada tela mostra ausência
-de valor. As três cópias divergiam nisso de verdade — o ControleBancario
-esconde zero para não encher de "R$ 0,00" uma tabela que já é larga, o
-ControleRendaVariavel mostra "-" quando não há valor, o MegaSena deixa em
-branco. Essas escolhas são de apresentação e continuam com cada app, mas
-agora explícitas no ponto da chamada (``ausente=``, ``ocultar_zero=``) em vez
-de embutidas em três implementações diferentes da mesma conta.
-
-**Python puro, sem dependência nenhuma** — é o que permite o ControleBancario
-(Django) usar a mesma conta que os três apps Flask.
+Ausência e ocultação de zero são escolhas explícitas de apresentação por meio
+de ``ausente=`` e ``ocultar_zero=``. O módulo é Python puro e não depende de
+framework web.
 """
 
 from __future__ import annotations
@@ -55,10 +41,7 @@ def numero(
     """Milhar com ponto, decimal com vírgula.
 
     ``remover_decimal_zero`` omite a parte decimal quando ela é inteiramente
-    zero — é o que as telas de Ações e Opções do ControleRendaVariavel usam:
-    um ",00" repetido em cada coluna de dinheiro só consome largura numa
-    tabela que já é larga demais. As telas onde o alinhamento das casas
-    decimais importa mais que a largura continuam sem ele.
+    zero, útil quando largura é mais importante que alinhamento decimal.
     """
     if valor is None:
         return ausente
@@ -110,8 +93,7 @@ def moeda_com_sinal(
 ) -> str:
     """``+ R$ 10,00`` / ``- R$ 10,00`` — o sinal separado do valor por espaço.
 
-    Formato do ControleBancario, onde a coluna de movimento precisa que o
-    sinal seja legível de relance. ``ocultar_zero`` é ``True`` por padrão aqui
+    O sinal separado facilita leitura rápida. ``ocultar_zero`` é ``True`` por padrão aqui
     (e não no resto do módulo) porque um movimento de zero não é movimento.
     """
     if valor is None:
@@ -134,9 +116,8 @@ def percentual(
 ) -> str:
     """``12,34 %``. Recebe o número já em pontos percentuais, não a fração.
 
-    ``casas`` alto e ``remover_decimal_zero`` cobrem o caso do MegaSena, que
-    mostra probabilidade com até oito casas e corta os zeros à direita — uma
-    chance de 1 em 50 milhões some inteira com duas casas.
+    ``casas`` alto e ``remover_decimal_zero`` preservam probabilidades muito
+    pequenas e removem zeros à direita.
     """
     if valor is None:
         return ausente

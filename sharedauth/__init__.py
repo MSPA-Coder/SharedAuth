@@ -1,37 +1,24 @@
-"""Rotinas de base compartilhadas entre os apps do mantenedor.
+"""Contratos compartilhados de autenticação, segurança, formatação e interface.
 
-Não é framework novo: é o que ConfortoTermico, MegaSena, ControleBancario e
-ControleRendaVariavel já faziam cada um por conta própria — sessão, CSRF,
-limite de tentativas, hash de senha, controle de acesso por padrão-nega,
-mensagens de status, cabeçalhos de segurança, formatação de números em
-pt-BR e rota de saúde — extraído uma vez para não divergir de novo por
-acidente, como divergiu (ver PLANO_UNIFICAR_AUTENTICACAO.md e
-PLANO_EQUALIZAR_BASE_COMPARTILHADA.md no repositório _manutencao dos outros
-projetos).
+O pacote não é um framework nem um serviço de login único. Ele oferece sessão,
+CSRF, limite de tentativas, hash de senha, acesso padrão-nega, mensagens,
+cabeçalhos de segurança, formatação pt-BR, rota de saúde e assets de interface.
 
-O nome do pacote é anterior a metade do que ele cobre hoje. Renomear
-quebraria os imports e o encanamento de token/CI dos três apps Flask por
-ganho cosmético — decisão registrada, não descuido.
+**Dois níveis de instalação** preservam a fronteira de dependências:
 
-**Dois níveis de instalação**, e a divisão é proposital:
-
-  - ``sharedauth`` — núcleo sem dependência nenhuma: :mod:`~sharedauth.security`
-    e :mod:`~sharedauth.formatting`. É o que o ControleBancario (Django)
-    instala, para compartilhar a política de cabeçalhos e a conta de
-    formatação sem arrastar um framework web que ele não usa.
+  - ``sharedauth`` — núcleo sem dependências: :mod:`~sharedauth.security`,
+    :mod:`~sharedauth.formatting` e :mod:`~sharedauth.ui` são importáveis sem
+    carregar Flask ou Werkzeug;
   - ``sharedauth[flask]`` — o resto, que fala com Flask/Werkzeug.
 
-Um módulo do núcleo que passe a importar Flask quebra o ControleBancario na
-instalação, não em runtime, e por isso existe um teste que verifica isso
-(``tests/test_nucleo_sem_flask.py``).
+``tests/test_nucleo_sem_flask.py`` verifica essa fronteira em um interpretador
+limpo.
 
 O que este pacote deliberadamente NÃO faz:
-  - não decide o modelo de autorização de nenhum app (papéis, permissões);
-    isso continua em cada projeto, porque a necessidade real é diferente
-    em cada um;
-  - não decide identidade visual: cada app tem paleta própria de propósito;
+  - não decide modelos de autorização, papéis ou permissões;
+  - não decide identidade visual; consumidores podem sobrescrever a paleta;
   - não é um serviço de login único (SSO); executa dentro do processo do
-    próprio app, como sempre fez.
+    próprio processo consumidor.
 """
 
 from __future__ import annotations

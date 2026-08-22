@@ -1,8 +1,6 @@
-/* Confirmação e aviso — componentes comuns aos quatro apps do mantenedor.
+/* Confirmação e aviso — componentes comuns aos consumidores.
  *
- * Sem dependência de biblioteca e sem template de framework: o projeto de
- * referência é Django e os outros três são Flask (ver o docstring de
- * `sharedauth/ui/__init__.py`).
+ * Sem dependência de biblioteca ou template de framework.
  *
  * ------------------------------------------------------------------------
  * REGRA DE USO (não é estética, é o que faz a confirmação proteger)
@@ -50,12 +48,8 @@
  * ------------------------------------------------------------------------
  * TRÊS DECISÕES QUE PARECEM DETALHE E NÃO SÃO
  *
- * 1. LISTENER DELEGADO NO DOCUMENTO, não um por elemento. O componente que
- *    deu origem a este (o `openConfirmModal` do ControleBancario) ligava um
- *    listener por botão, uma vez, na varredura inicial -- e a tabela de
- *    transações é trocada por `hx-swap`, então ele parava de confirmar depois
- *    do primeiro filtro. Delegação no documento cobre elemento que ainda não
- *    existia, sem reinicialização nenhuma.
+ * 1. LISTENER DELEGADO NO DOCUMENTO, não um por elemento. A delegação cobre
+ *    elementos inseridos por `hx-swap` sem reinicialização.
  *
  * 2. FOCO INICIAL NO "CANCELAR", não no "Confirmar". Num diálogo que apaga
  *    dado, um Enter distraído tem de cancelar, não destruir.
@@ -63,8 +57,8 @@
  * 3. NADA DE ESTILO INLINE. A CSP dos apps é `style-src 'self'` sem
  *    `unsafe-inline`: atributo `style=` é bloqueado pelo navegador. Todo
  *    estado visual aqui é classe CSS. Ícone é SVG construído no DOM -- não
- *    `<img src="data:...">`, que cairia no `img-src 'self'` de dois dos
- *    quatro apps; SVG no DOM não é requisição e não passa por `img-src`.
+ *    `<img src="data:...">`, que cairia no `img-src 'self'`; SVG no DOM não
+ *    é requisição e não passa por `img-src`.
  *
  * DEGRADAÇÃO: se este arquivo não carregar, nada intercepta nada e os botões
  * voltam a enviar o formulário direto. Sem confirmação é ruim; um botão que
@@ -198,8 +192,7 @@
   }
 
   // Foco preso: sem isto, o Tab passeia pela página atrás do diálogo. O
-  // `window.confirm` que este componente substitui prendia o foco de graça --
-  // trocá-lo por um modal sem isso seria REGRESSÃO de acessibilidade.
+  // Prender o foco impede o Tab de alcançar a página atrás do diálogo.
   function aoTeclar(ev) {
     if (!emAberto) return;
     if (ev.key === "Escape") {
@@ -364,8 +357,7 @@
         if (form) {
           // `requestSubmit(alvo)` preserva o SUBMITTER -- name/value do botão
           // clicado chegam ao servidor, e a validação nativa do formulário
-          // roda. É o que o componente de origem fazia à mão espelhando o
-          // botão num input escondido.
+          // roda.
           if (typeof form.requestSubmit === "function") {
             form.requestSubmit(alvo.type === "submit" ? alvo : undefined);
           } else {

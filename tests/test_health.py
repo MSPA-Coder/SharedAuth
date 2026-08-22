@@ -40,9 +40,8 @@ def test_registra_em_blueprint(app: Flask) -> None:
 
 
 def test_isencao_de_rate_limit_e_de_fato_aplicada() -> None:
-    # Regressão do erro que já custou caro duas vezes: `limiter.exempt`
-    # devolve uma função nova; descartar o retorno deixa a isenção decorada e
-    # nunca aplicada. Sem `TESTING`, senão o Limiter se desliga sozinho.
+    # `limiter.exempt` devolve uma função nova; descartar o retorno deixa a
+    # isenção sem efeito. Sem `TESTING`, senão o Limiter se desliga sozinho.
     app = Flask(__name__)
     app.config["SECRET_KEY"] = "test-only-not-a-real-secret"
     limiter = Limiter(

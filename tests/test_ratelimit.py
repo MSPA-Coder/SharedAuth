@@ -33,9 +33,8 @@ def test_limite_bloqueia_apos_o_numero_configurado() -> None:
 
 
 def test_criar_um_segundo_app_nao_reseta_o_limite_do_primeiro() -> None:
-    # Regressão: init_app reconstruía o storage de um singleton de módulo
-    # compartilhado -- criar o app B apagava os contadores do app A, sem
-    # nenhuma requisição contra B. Reproduzido de fato antes desta correção.
+    # Um singleton compartilharia storage mutável; instâncias por app mantêm
+    # os contadores isolados.
     app_a = _app_com_login_limitado()
     cliente_a = app_a.test_client()
     cliente_a.get("/login")

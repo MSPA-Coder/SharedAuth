@@ -69,8 +69,7 @@ def test_next_com_query_string_e_preservado() -> None:
 
 
 def test_nao_autenticado_em_rota_api_recebe_401_json() -> None:
-    # Chave "error" (inglês) por padrão -- é a convenção já usada no
-    # ControleRendaVariavel, de onde este comportamento foi extraído.
+    # A chave padrão é configurável para APIs com outra convenção.
     app = _montar_app(usar_hx_redirect=False, autenticado=[False])
     resposta = app.test_client().get("/api/dado")
     assert resposta.status_code == 401
@@ -108,7 +107,7 @@ def test_sessao_expirada_em_requisicao_htmx_devolve_hx_redirect() -> None:
 
 def test_sem_hx_redirect_requisicao_htmx_segue_fluxo_normal() -> None:
     # Com usar_hx_redirect=False, uma requisição HTMX para rota não-API é
-    # tratada como navegação comum -- é o padrão do ControleRendaVariavel.
+    # tratada como navegação comum.
     app = _montar_app(usar_hx_redirect=False, autenticado=[False])
     resposta = app.test_client().get(
         "/protegida", headers={"HX-Request": "true"}, follow_redirects=False

@@ -1,9 +1,6 @@
-"""Hash e política de senha — um piso comum, uma implementação.
+"""Hash e política de senha com piso mínimo compartilhado.
 
-Werkzeug já é a biblioteca testada pela comunidade para isto; este módulo não
-reimplementa hashing, só evita que cada app decida um piso mínimo diferente
-por acidente (era 2 no MegaSena, 15 no ControleBancario, 8 nos outros dois,
-sem nenhuma razão para a diferença).
+O módulo valida o tamanho e delega geração e conferência de hash ao Werkzeug.
 """
 
 from __future__ import annotations
@@ -20,8 +17,7 @@ class SenhaMuitoCurtaError(ValueError):
     não depende de Click. Um comando de CLI que chamar :func:`gerar_hash`
     diretamente precisa capturar esta exceção e relançar como
     ``click.ClickException`` (ou equivalente), senão o operador recebe um
-    traceback cru em vez da mensagem de erro limpa que os apps já mostram
-    hoje.
+    traceback cru em vez de uma mensagem adequada ao operador.
     """
 
 
@@ -42,8 +38,7 @@ def gerar_hash(senha: str) -> str:
 def conferir_hash(hash_: str | None, senha: str) -> bool:
     """``False`` para hash ausente, nunca uma exceção.
 
-    Uma conta sem senha definida ainda (importação administrativa, conta só
-    de token, linha em meio a migração) tem ``hash_`` nulo ou vazio.
+    Uma conta sem senha definida pode ter ``hash_`` nulo ou vazio.
     ``werkzeug.security.check_password_hash`` não tem essa guarda — chamar
     direto derruba o login com 500 em vez de recusar a senha.
     """

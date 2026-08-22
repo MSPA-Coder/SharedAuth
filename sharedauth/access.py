@@ -1,12 +1,7 @@
-"""Padrão-nega: toda rota exige sessão, exceto a lista curta que não exige.
+"""Acesso padrão-nega: toda rota exige sessão, exceto endpoints públicos.
 
-Os dois apps que já usam Flask-Login (MegaSena, ControleRendaVariavel) tinham
-o mesmo desenho, escrito duas vezes: uma lista de endpoints *públicos* (nunca
-de endpoints protegidos, de propósito — uma rota nova nasce protegida) e um
-``before_request`` que barra o resto. As duas implementações reagiam
-diferente quando a sessão expirava no meio de uma resposta HTMX: uma devolvia
-``HX-Redirect`` (recarrega a página inteira), a outra devolvia 401 JSON para
-chamadas de API. Este módulo aceita as duas formas, escolhida por app.
+Rotas novas nascem protegidas. Sessões expiradas podem gerar ``HX-Redirect``
+para HTMX, 401 JSON para APIs ou redirecionamento HTML, conforme a configuração.
 """
 
 from __future__ import annotations
@@ -41,16 +36,13 @@ def requer_login(
     Uma sessão expirada durante requisição HTMX não pode devolver a tela de
     login dentro de um fragmento parcial:
 
-    - ``usar_hx_redirect=True`` — cabeçalho ``HX-Redirect`` (o padrão do
-      MegaSena), o navegador recarrega a página inteira no lugar certo;
+    - ``usar_hx_redirect=True`` — cabeçalho ``HX-Redirect`` para o navegador
+      recarregar a página inteira;
     - ``usar_hx_redirect=False`` (padrão) — 401 JSON quando o caminho começa
-      com ``prefixo_api`` (o padrão do ControleRendaVariavel), redirect HTML
-      nos demais casos.
+      com ``prefixo_api`` e redirect HTML nos demais casos.
 
-    ``chave_erro_api`` é a chave do corpo JSON do 401 — o padrão ``"error"``
-    (inglês) segue a convenção já em uso no ControleRendaVariavel, de onde
-    este comportamento foi extraído; um app com convenção própria pode
-    sobrescrever.
+    ``chave_erro_api`` define a chave do corpo JSON do 401 e pode ser
+    sobrescrita pelo consumidor.
 
     Levanta ``RuntimeError`` se chamada mais de uma vez no mesmo app: o
     Flask não deduplica ``before_request``, e uma segunda chamada com

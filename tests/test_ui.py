@@ -1,10 +1,4 @@
-"""O pacote de interface: o que ele promete a cada framework, e a cópia vigiada.
-
-O `sharedauth.ui` existe porque o `messages` parou na fronteira do framework —
-ele entrega um Blueprint do Flask, e o ControleBancario é Django. Então o
-contrato aqui é diferente: CSS, JS e um `Path`. Estes testes guardam esse
-contrato.
-"""
+"""Contratos dos assets de interface e de suas integrações."""
 
 from __future__ import annotations
 
@@ -75,8 +69,7 @@ def test_registrar_ui_duas_vezes_nao_derruba_o_app() -> None:
 
 
 def test_convive_com_o_blueprint_de_mensagens() -> None:
-    """Os três apps Flask registram os dois. Nome de blueprint repetido é erro
-    em tempo de registro -- este teste é o que impede a colisão de voltar."""
+    """Os blueprints precisam ter nomes distintos para coexistir."""
     from sharedauth.messages import registrar_mensagens
 
     app = Flask(__name__)
@@ -110,21 +103,18 @@ def test_severidade_desconhecida_cai_em_info_em_vez_de_quebrar() -> None:
 
 
 def test_icone_nao_usa_data_uri() -> None:
-    """A CSP dos apps fecha `img-src` em `'self'`. SVG embutido no documento
-    não é requisição e passa; `<img src="data:...">` seria bloqueado em dois dos
-    quatro, e abrir `data:` para todos seria a união das políticas."""
+    """Com `img-src 'self'`, SVG no documento passa sem exigir `data:`."""
     for severidade in SEVERIDADES:
         assert "data:" not in svg_icone(severidade)
         assert "<img" not in svg_icone(severidade)
 
 
 # ---------------------------------------------------------------------------
-# A cópia vigiada
+# Representações sincronizadas
 #
 # O traçado do ícone existe em Python (banner no servidor) e em JavaScript
 # (modal e toast no navegador). O JS não pode importar Python, então a cópia é
-# inevitável -- divergir não é. Este é o teste que transforma a duplicação em
-# invariante conferido.
+# inevitável. O teste mantém as representações sincronizadas.
 # ---------------------------------------------------------------------------
 
 
@@ -171,8 +161,7 @@ def test_css_nao_tem_url_externa_nem_data_uri() -> None:
     não deixa `data:`. Um `url()` aqui viraria recurso bloqueado no navegador,
     sem erro no servidor."""
     css = (CAMINHO_ESTATICO / ARQUIVO_CSS).read_text(encoding="utf-8")
-    # Tira os comentarios antes de procurar: a primeira versao deste teste
-    # reprovava por causa do proprio comentario que EXPLICA nao haver `url()`.
+    # Ignora comentários para verificar apenas dados CSS executáveis.
     sem_comentario = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
     assert "url(" not in sem_comentario
     assert "data:" not in sem_comentario
@@ -195,8 +184,7 @@ def test_js_nao_escreve_estilo_inline() -> None:
 
 
 def test_js_prende_o_foco_e_atende_o_escape() -> None:
-    """Trocar `window.confirm` por um modal sem tratar foco é REGRESSÃO de
-    acessibilidade: o nativo prendia o foco de graça."""
+    """O modal deve prender e restaurar o foco para manter acessibilidade."""
     js = (CAMINHO_ESTATICO / ARQUIVO_JS).read_text(encoding="utf-8")
     assert 'aria-modal' in js
     assert '"Escape"' in js
@@ -205,13 +193,7 @@ def test_js_prende_o_foco_e_atende_o_escape() -> None:
 
 
 def test_a_versao_do_pacote_bate_com_a_do_pyproject() -> None:
-    """A versão está declarada em dois lugares e já divergiu uma vez.
-
-    Os quatro apps fixam o `sharedauth` por TAG do Git. Um `__version__` que
-    não corresponde ao que a tag empacotou é rastro falso na hora de descobrir
-    qual código está rodando em produção -- e essa é a única pergunta que
-    importa quando algo quebra.
-    """
+    """A versão pública deve corresponder aos metadados do pacote."""
     import tomllib
     from pathlib import Path
 

@@ -39,9 +39,8 @@ def test_get_nao_exige_token() -> None:
 
 
 def test_isencao_de_um_app_nao_vaza_para_outro() -> None:
-    # Regressão: um único CSRFProtect de módulo guarda _exempt_views na
-    # própria instância, não por app -- isentar uma view no app A isentava
-    # a mesma view (mesmo módulo.nome) no app B, no mesmo processo.
+    # CSRFProtect guarda _exempt_views na própria instância, por isso cada app
+    # precisa de uma instância isolada.
     app_a = Flask("app_a")
     app_a.config["SECRET_KEY"] = "test-only-not-a-real-secret"
     csrf_a = iniciar_csrf(app_a)

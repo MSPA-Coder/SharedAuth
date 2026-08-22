@@ -31,8 +31,7 @@ def test_ausencia_de_valor_e_diferente_de_zero() -> None:
 
 
 def test_ocultar_zero_deixa_a_celula_vazia() -> None:
-    # Escolha do ControleBancario: uma tabela larga cheia de "R$ 0,00" só
-    # gasta largura. Continua sendo escolha da tela, agora explícita.
+    # Ocultar zero é uma escolha explícita da tela para poupar largura.
     assert numero(Decimal("0"), ocultar_zero=True) == ""
     assert moeda(Decimal("0"), ocultar_zero=True) == ""
 
@@ -78,9 +77,7 @@ def test_percentual_sem_simbolo() -> None:
 
 
 def test_percentual_de_probabilidade_muito_pequena() -> None:
-    # 1 em 50.063.860 (Mega-Sena, 6 dezenas). Com duas casas some inteira;
-    # com oito sobrevive. Oito é o que o MegaSena já usava, e o resultado
-    # aqui é igual ao dele, dígito por dígito.
+    # Uma probabilidade muito pequena some com duas casas e sobrevive com oito.
     valor = Decimal("100") / Decimal("50063860")
     assert percentual(valor) == "0,00 %"
     assert percentual(valor, casas=8, remover_decimal_zero=True) == "0,000002 %"

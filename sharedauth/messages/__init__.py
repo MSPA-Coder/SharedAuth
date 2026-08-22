@@ -1,10 +1,6 @@
-"""Mensagens de status — o mesmo `flash()` do Flask, renderização comum.
+"""Renderização comum para mensagens de status do Flask.
 
-Não reimplementa nada: os três apps Flask já chamam `flask.flash()`. O que
-divergia era a renderização (só uma categoria estilizada no MegaSena, erro
-saindo com a cor de sucesso) e a cobertura em respostas HTMX parciais (cada
-template do MegaSena reescrevia o bloco `hx-swap-oob` à mão). Este módulo dá
-os dois templates prontos; o app inclui, não reescreve.
+O módulo fornece parciais normal e OOB para HTMX com as severidades suportadas.
 
 Um `Blueprint` do próprio Flask entrega template e CSS -- não um
 `ChoiceLoader` montado à mão nem uma rota que relê o arquivo do disco a cada
@@ -51,8 +47,7 @@ def registrar_mensagens(app: Flask) -> None:
     ``url_for("sharedauth.static", filename="flash_messages.css")``).
 
     Chamar duas vezes no mesmo app é seguro — a segunda chamada não faz
-    nada, em vez de derrubar o app com o erro de rota duplicada que o
-    registro manual (sem este guard) causaria.
+    nada, preservando a idempotência do registro.
     """
     # O banner usa `sharedauth_icone`. Registrado aqui tambem porque um app
     # pode incluir as mensagens sem registrar o pacote de interface -- e a

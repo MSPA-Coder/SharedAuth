@@ -4,12 +4,11 @@
     O ícone vem de `sharedauth_icone`, registrado por
     `registrar_mensagens()`. É SVG embutido, não `<img src="data:...">`:
     a CSP dos apps fecha `img-src` em `'self'`, e SVG no documento não é
-    requisição. O traçado é o mesmo do modal e do toast -- um teste do
-    SharedAuth confere que as duas cópias não divergiram.
+    requisição. O traçado é o mesmo do modal e do toast, garantido por teste.
 
     `sa-<categoria>` além de `sharedauth-flash-<categoria>`: a primeira é a
     classe que colore o ícone (definida em `sharedauth-ui.css`), a segunda é
-    a que já colore o banner. Um app que inclua só o CSS de mensagens
+    a que colore o banner. Um app que inclua só o CSS de mensagens
     continua funcionando; o ícone é que fica sem cor própria. -#}
 {% with mensagens = get_flashed_messages(with_categories=True) %}
 {% if mensagens %}

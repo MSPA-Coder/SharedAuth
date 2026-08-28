@@ -7,7 +7,8 @@ cabeçalhos de segurança, formatação pt-BR, rota de saúde e assets de interf
 **Dois níveis de instalação** preservam a fronteira de dependências:
 
   - ``sharedauth`` — núcleo sem dependências: :mod:`~sharedauth.security`,
-    :mod:`~sharedauth.formatting`, :mod:`~sharedauth.config` e
+    :mod:`~sharedauth.formatting`, :mod:`~sharedauth.config`,
+    :mod:`~sharedauth.secrets` e
     :mod:`~sharedauth.ui` são importáveis sem carregar Flask ou Werkzeug;
   - ``sharedauth[flask]`` — o resto, que fala com Flask/Werkzeug.
 
@@ -23,4 +24,4 @@ O que este pacote deliberadamente NÃO faz:
 
 from __future__ import annotations
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"

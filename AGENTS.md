@@ -41,6 +41,8 @@ importáveis sem carregar Flask, Werkzeug, Flask-WTF ou Flask-Limiter:
 - `sharedauth.formatting`: formatação numérica em Python puro;
 - `sharedauth.config`: leitura de flag de ambiente e montagem da URL do
   PostgreSQL são `os.environ` e `urllib.parse`, sem driver nem ORM;
+- `sharedauth.secrets`: leitura de segredo por arquivo é `pathlib` e
+  `os.environ`, sem framework;
 - `sharedauth.ui`: caminho dos assets, severidades e SVG são independentes;
   imports de Flask e MarkupSafe permanecem locais às funções de integração.
 
@@ -48,12 +50,15 @@ importáveis sem carregar Flask, Werkzeug, Flask-WTF ou Flask-Limiter:
 limpo. Tudo que exige Flask/Werkzeug pertence ao extra `[flask]`. Não mova um
 import de integração para o topo de `security` ou `ui`.
 
-## Contratos existentes na v0.4.0
+## Contratos existentes na v0.5.0
 
 - `security`: cabeçalhos defensivos, CSP e registro em Flask/Blueprint;
 - `formatting`: números, inteiros, moedas e percentuais em pt-BR;
 - `config`: leitura de flag booleana do ambiente (com modo estrito) e
   montagem da URL do PostgreSQL com escape correto;
+- `secrets`: leitura de segredo concedido por arquivo, com `NOME_FILE` antes
+  de `NOME`, recusa de ausente e vazio, e trava opcional do caminho esperado;
+  nenhuma mensagem de erro carrega o valor do segredo;
 - `ui`: assets CSS/JS, integração de estáticos com Django ou Flask e ícones;
 - `passwords`: validação, hash e conferência de senha com Werkzeug;
 - `session`: opções de cookies de sessão e de “lembrar-me” no Flask,
@@ -96,12 +101,12 @@ monitoramento desse backend permanecem no consumidor.
 
 ## Versionamento e consumo
 
-Os consumidores fixam a dependência por tag Git. Use `v0.4.0` nos exemplos
+Os consumidores fixam a dependência por tag Git. Use `v0.5.0` nos exemplos
 atuais:
 
 ```text
-sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.4.0
-sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.4.0
+sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.5.0
+sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.5.0
 ```
 
 Tags publicadas são imutáveis: nunca reescreva uma tag. Toda mudança pública

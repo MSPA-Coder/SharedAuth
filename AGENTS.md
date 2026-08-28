@@ -39,6 +39,8 @@ importáveis sem carregar Flask, Werkzeug, Flask-WTF ou Flask-Limiter:
 - `sharedauth.security`: constantes e montagem de CSP são Python puro; a
   função de registro recebe o objeto web pronto e não importa Flask em runtime;
 - `sharedauth.formatting`: formatação numérica em Python puro;
+- `sharedauth.config`: leitura de flag de ambiente e montagem da URL do
+  PostgreSQL são `os.environ` e `urllib.parse`, sem driver nem ORM;
 - `sharedauth.ui`: caminho dos assets, severidades e SVG são independentes;
   imports de Flask e MarkupSafe permanecem locais às funções de integração.
 
@@ -46,19 +48,36 @@ importáveis sem carregar Flask, Werkzeug, Flask-WTF ou Flask-Limiter:
 limpo. Tudo que exige Flask/Werkzeug pertence ao extra `[flask]`. Não mova um
 import de integração para o topo de `security` ou `ui`.
 
-## Contratos existentes na v0.3.0
+## Contratos existentes na v0.4.0
 
 - `security`: cabeçalhos defensivos, CSP e registro em Flask/Blueprint;
 - `formatting`: números, inteiros, moedas e percentuais em pt-BR;
+- `config`: leitura de flag booleana do ambiente (com modo estrito) e
+  montagem da URL do PostgreSQL com escape correto;
 - `ui`: assets CSS/JS, integração de estáticos com Django ou Flask e ícones;
 - `passwords`: validação, hash e conferência de senha com Werkzeug;
-- `session`: opções de cookies de sessão e de “lembrar-me” no Flask;
+- `session`: opções de cookies de sessão e de “lembrar-me” no Flask,
+  incluindo a duração de ambos;
 - `csrf`: uma instância de `CSRFProtect` por app;
-- `ratelimit`: uma instância de `Limiter` por app e limite padrão de login;
-- `access`: proteção padrão-nega e respostas adequadas a HTML, API e HTMX;
+- `ratelimit`: uma instância de `Limiter` por app, limite padrão de login,
+  política opcional do consumidor e aplicação/isenção de limite por endpoint;
+- `access`: proteção padrão-nega, respostas adequadas a HTML, API e HTMX, e
+  verificação binária de papel na camada de view;
 - `messages`: templates normal/OOB e CSS de mensagens Flask;
 - `health`: rota de saúde, sonda fornecida pelo consumidor e isenção opcional
   do limiter.
+
+### Sobre o critério "não uniformizar regras diferentes"
+
+Ele continua valendo, e continua recusando a tentativa de forçar dois
+consumidores a se comportarem igual. Mas ele **não** recusa parametrizar uma
+mecânica comum para que cada consumidor declare a sua regra — foi o que
+entrou na v0.4.0 em `config.ler_flag` (`estrito=`) e em
+`ratelimit.iniciar_limiter` (política do consumidor).
+
+A diferença de teste: se a proposta obriga alguém a mudar de comportamento,
+está fora; se ela deixa cada um escrever o comportamento que já tem, num lugar
+só e com teste, está dentro.
 
 Preserve a separação entre módulos. Um módulo novo ou uma reorganização exige
 necessidade concreta nos consumidores e testes do contrato público.
@@ -77,12 +96,12 @@ monitoramento desse backend permanecem no consumidor.
 
 ## Versionamento e consumo
 
-Os consumidores fixam a dependência por tag Git. Use `v0.3.0` nos exemplos
+Os consumidores fixam a dependência por tag Git. Use `v0.4.0` nos exemplos
 atuais:
 
 ```text
-sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.3.0
-sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.3.0
+sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.4.0
+sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.4.0
 ```
 
 Tags publicadas são imutáveis: nunca reescreva uma tag. Toda mudança pública

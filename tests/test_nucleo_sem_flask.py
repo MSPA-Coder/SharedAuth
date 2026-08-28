@@ -18,6 +18,8 @@ def test_security_e_formatting_nao_arrastam_flask_nem_werkzeug() -> None:
     codigo = (
         "import sys;"
         "import sharedauth, sharedauth.security, sharedauth.formatting;"
+        # `config` le ambiente e monta URL de conexao em Python puro.
+        "import sharedauth.config;"
         # `sharedauth.ui` expõe assets sem exigir a integração Flask.
         "import sharedauth.ui;"
         "proibidos = [m for m in sys.modules if m.split('.')[0] in "

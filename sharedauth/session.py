@@ -20,12 +20,27 @@ def configurar_sessao(
     nome_cookie: str,
     https_obrigatorio: bool,
     duracao_horas: float | None = None,
+    duracao_lembrete_horas: float | None = None,
 ) -> None:
     """Aplica o padrão comum: HttpOnly, SameSite=Lax, Secure se HTTPS.
 
     ``https_obrigatorio`` normalmente vem da mesma flag de ambiente
     que o consumidor usa para decidir redirecionamento e HSTS; passe o valor
     já resolvido, pois este módulo não lê ambiente sozinho.
+
+    ``duracao_horas`` define ``permanent_session_lifetime`` — quanto tempo vale
+    uma sessão marcada como permanente.
+
+    ``duracao_lembrete_horas`` define ``REMEMBER_COOKIE_DURATION``, e **é a que
+    decide quanto tempo alguém continua autenticado sem digitar a senha de
+    novo**. Sem ela, o padrão do Flask-Login vale: **365 dias**. Num aplicativo
+    que chama ``login_user(..., remember=True)`` — o que é o comportamento
+    padrão de vários, não uma caixa que a pessoa marca —, isso significa que um
+    cookie copiado de um navegador vale por um ano.
+
+    Omitir as duas mantém os padrões do Flask e do Flask-Login, e é por isso que
+    a omissão não é neutra: ela é o caminho para o ano inteiro. Passe um teto
+    explícito em qualquer aplicativo com dado que você não publicaria.
     """
     app.config["SESSION_COOKIE_NAME"] = nome_cookie
     app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -40,3 +55,8 @@ def configurar_sessao(
 
     if duracao_horas is not None:
         app.permanent_session_lifetime = timedelta(hours=duracao_horas)
+
+    if duracao_lembrete_horas is not None:
+        app.config["REMEMBER_COOKIE_DURATION"] = timedelta(
+            hours=duracao_lembrete_horas
+        )

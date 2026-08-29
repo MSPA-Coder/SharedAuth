@@ -93,3 +93,56 @@ def test_valor_ja_definido_pelo_app_vence(app: Flask) -> None:
     assert resposta.headers["Content-Security-Policy"] == "default-src 'none'"
     # e o resto do conjunto continua aplicado
     assert resposta.headers["X-Content-Type-Options"] == "nosniff"
+
+# ---------------------------------------------------------------------------
+# Vary: HX-Request
+# ---------------------------------------------------------------------------
+
+
+def _app_com_rotas() -> Flask:
+    app = Flask(__name__)
+    registrar_cabecalhos(app)
+
+    @app.get("/")
+    def tela() -> str:
+        return "<p>ok</p>"
+
+    @app.get("/dados.json")
+    def dados():
+        return {"ok": True}
+
+    @app.get("/varia-por-idioma")
+    def por_idioma():
+        resposta = app.make_response("<p>ok</p>")
+        resposta.vary.add("Accept-Language")
+        return resposta
+
+    return app
+
+
+def test_resposta_html_declara_que_varia_por_hx_request() -> None:
+    """Tela e fragmento compartilham a URL; o cache precisa saber disso.
+
+    Sem `Vary`, um cache no caminho pode guardar o fragmento e servi-lo a
+    requisicao seguinte como se fosse o documento inteiro -- a tela aparece sem
+    casca. Sintoma intermitente, que some ao recarregar.
+    """
+    resposta = _app_com_rotas().test_client().get("/")
+
+    assert "HX-Request" in resposta.headers.get("Vary", "")
+
+
+def test_resposta_nao_html_nao_recebe_vary() -> None:
+    """Acrescentar `Vary` a um JSON faria o cache guardar duas copias iguais."""
+    resposta = _app_com_rotas().test_client().get("/dados.json")
+
+    assert "HX-Request" not in resposta.headers.get("Vary", "")
+
+
+def test_vary_preexistente_e_preservado() -> None:
+    """Uma rota que ja varia por outro cabecalho nao pode perde-lo."""
+    resposta = _app_com_rotas().test_client().get("/varia-por-idioma")
+
+    vary = resposta.headers.get("Vary", "")
+    assert "Accept-Language" in vary
+    assert "HX-Request" in vary

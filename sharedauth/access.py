@@ -6,15 +6,18 @@ para HTMX, 401 JSON para APIs ou redirecionamento HTML, conforme a configuraçã
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from functools import wraps
+from typing import TYPE_CHECKING, Callable, TypeVar
 
-from flask import jsonify, make_response, redirect, request, url_for
+from flask import abort, jsonify, make_response, redirect, request, url_for
 
 if TYPE_CHECKING:
     from flask import Flask, Response
 
 
 _MARCA_REGISTRO = "sharedauth_access_registrado"
+
+F = TypeVar("F", bound=Callable[..., object])
 
 
 def requer_login(
@@ -77,3 +80,55 @@ def requer_login(
         # query string -- evitar isso aqui em vez de propagar "?next=/x%3F".
         proximo = request.full_path if request.query_string else request.path
         return redirect(url_for(endpoint_login, next=proximo))
+
+
+def requer_papel(
+    tem_papel: Callable[[], bool],
+    *,
+    prefixo_api: str | None = "/api/",
+    chave_erro_api: str = "error",
+    mensagem: str = "Acesso restrito.",
+) -> Callable[[F], F]:
+    """Devolve um decorator que recusa com 403 quem não tem o papel.
+
+    ``tem_papel`` é chamada a cada requisição da rota decorada — tipicamente
+    ``lambda: current_user.is_admin``. Como em :func:`requer_login`, o
+    Flask-Login não é importado aqui, para não forçar essa dependência em quem
+    não a usa. **Nenhum modelo de papel entra nesta biblioteca**: quem decide
+    o que é ter o papel é o consumidor.
+
+    **403, nunca redirecionamento para o login.** Quem chega numa rota
+    decorada já está autenticado — foi :func:`requer_login` que o deixou
+    passar. Mandar essa pessoa para a tela de login sugeriria que entrar de
+    novo resolveria, e não resolve: falta permissão, não sessão.
+
+    Isto cobre a verificação **binária** de papel na camada de view. Modelos
+    ricos — permissão por titular, área por endpoint — continuam no
+    consumidor, porque não são casos particulares um do outro.
+
+    Esconder o botão no template é apresentação, não controle: um item ausente
+    do menu não impede ninguém de chamar a rota direto.
+
+    **A recusa usa ``abort``, não um ``return`` da resposta.** A diferença
+    importa: ``abort`` levanta a exceção HTTP, e é isso que deixa um
+    ``errorhandler(403)`` do consumidor renderizar a página de erro do próprio
+    aplicativo. Devolver a resposta pronta daqui passaria por cima desse
+    handler e entregaria um 403 cru, sem a casca visual do app — foi o que a
+    suíte do ControleRendaVariavel apanhou na primeira versão deste contrato.
+    """
+
+    def decorador(view: F) -> F:
+        @wraps(view)
+        def wrapper(*args: object, **kwargs: object):
+            if tem_papel():
+                return view(*args, **kwargs)
+            if prefixo_api and request.path.startswith(prefixo_api):
+                # `abort` aceita um Response pronto e o levanta como está: a
+                # rota de API recusa em JSON sem depender de o consumidor ter
+                # um handler que saiba distinguir API de HTML.
+                abort(make_response(jsonify({chave_erro_api: mensagem}), 403))
+            abort(403, description=mensagem)
+
+        return wrapper  # type: ignore[return-value]
+
+    return decorador

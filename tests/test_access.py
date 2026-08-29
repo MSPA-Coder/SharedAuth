@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from flask import Flask
 
-from sharedauth.access import requer_login
+from sharedauth.access import requer_login, requer_papel
 
 
 def _montar_app(*, usar_hx_redirect: bool, autenticado: list[bool]) -> Flask:
@@ -85,7 +85,7 @@ def test_chave_do_erro_json_e_configuravel() -> None:
     def api_dado():
         return {"ok": True}
 
-    from sharedauth.access import requer_login
+    from sharedauth.access import requer_login, requer_papel
 
     requer_login(
         app,
@@ -135,3 +135,109 @@ def test_registrar_duas_vezes_no_mesmo_app_levanta_erro() -> None:
             endpoint_login="static",
             esta_autenticado=lambda: True,
         )
+
+
+# --------------------------------------------------------------------------
+# requer_papel
+# --------------------------------------------------------------------------
+
+
+def _app_com_papel(tem_papel, **kwargs) -> Flask:
+    app = Flask(__name__)
+    app.config["SECRET_KEY"] = "test-only-not-a-real-secret"
+    app.config["TESTING"] = True
+
+    @app.get("/admin")
+    @requer_papel(tem_papel, **kwargs)
+    def admin():
+        return "area restrita"
+
+    @app.get("/api/admin")
+    @requer_papel(tem_papel, **kwargs)
+    def api_admin():
+        return {"ok": True}
+
+    return app
+
+
+def test_com_o_papel_a_view_roda() -> None:
+    cliente = _app_com_papel(lambda: True).test_client()
+    resposta = cliente.get("/admin")
+    assert resposta.status_code == 200
+    assert resposta.get_data(as_text=True) == "area restrita"
+
+
+def test_sem_o_papel_responde_403_e_nao_executa_a_view() -> None:
+    cliente = _app_com_papel(lambda: False).test_client()
+    resposta = cliente.get("/admin")
+    assert resposta.status_code == 403
+    assert "area restrita" not in resposta.get_data(as_text=True)
+
+
+def test_recusa_em_html_levanta_para_o_errorhandler_do_consumidor() -> None:
+    """`abort`, não `return`: o app precisa poder renderizar o próprio 403.
+
+    Devolver a resposta pronta daqui passaria por cima de um
+    `errorhandler(403)` registrado pelo consumidor, entregando um 403 cru sem
+    a casca visual do aplicativo.
+    """
+    app = _app_com_papel(lambda: False)
+
+    @app.errorhandler(403)
+    def _403(erro):
+        return "pagina de erro do app", 403
+
+    resposta = app.test_client().get("/admin")
+    assert resposta.status_code == 403
+    assert resposta.get_data(as_text=True) == "pagina de erro do app"
+
+
+def test_recusa_nunca_redireciona_para_o_login() -> None:
+    """Quem chega aqui já está autenticado; falta permissão, não sessão.
+
+    Um 302 para o login sugeriria que entrar de novo resolveria o problema.
+    """
+    cliente = _app_com_papel(lambda: False).test_client()
+    resposta = cliente.get("/admin")
+    assert resposta.status_code == 403
+    assert "Location" not in resposta.headers
+
+
+def test_rota_de_api_recusa_em_json() -> None:
+    cliente = _app_com_papel(lambda: False).test_client()
+    resposta = cliente.get("/api/admin")
+    assert resposta.status_code == 403
+    assert resposta.get_json() == {"error": "Acesso restrito."}
+
+
+def test_chave_de_erro_da_api_e_configuravel() -> None:
+    cliente = _app_com_papel(lambda: False, chave_erro_api="erro").test_client()
+    assert cliente.get("/api/admin").get_json() == {"erro": "Acesso restrito."}
+
+
+def test_sem_prefixo_de_api_tudo_recusa_em_html() -> None:
+    cliente = _app_com_papel(lambda: False, prefixo_api=None).test_client()
+    resposta = cliente.get("/api/admin")
+    assert resposta.status_code == 403
+    assert resposta.get_json(silent=True) is None
+
+
+def test_papel_e_consultado_a_cada_requisicao() -> None:
+    # O papel pode mudar durante a sessão (alguém deixa de ser admin); a
+    # decisão não pode ser congelada no momento do registro da rota.
+    chamadas: list[int] = []
+
+    def tem_papel() -> bool:
+        chamadas.append(1)
+        return len(chamadas) == 1
+
+    cliente = _app_com_papel(tem_papel).test_client()
+    assert cliente.get("/admin").status_code == 200
+    assert cliente.get("/admin").status_code == 403
+
+
+def test_preserva_nome_e_docstring_da_view() -> None:
+    # `@wraps`: sem isto o Flask registraria todas as views decoradas com o
+    # mesmo nome e a segunda rota falharia no registro.
+    app = _app_com_papel(lambda: True)
+    assert app.view_functions["admin"].__name__ == "admin"

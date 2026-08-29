@@ -34,19 +34,19 @@ Permanecem nos consumidores:
 
 ## Instalação e fronteira de dependências
 
-A versão atual é `0.3.0`. Os consumidores instalam diretamente da tag Git,
+A versão atual é `0.5.0`. Os consumidores instalam diretamente da tag Git,
 sem acompanhar branch ou usar instalação editável.
 
 Aplicativo que usa somente o núcleo:
 
 ```text
-sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.3.0
+sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.5.0
 ```
 
 Aplicativo Flask:
 
 ```text
-sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.3.0
+sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.5.0
 ```
 
 O pacote-base não declara dependências. Estes módulos podem ser importados
@@ -67,12 +67,14 @@ demais módulos e para as funções Flask de `security` e `ui`.
 |---|---|
 | `sharedauth.security` | Cabeçalhos defensivos, CSP fechada por padrão, `montar_csp` e registro em Flask/Blueprint. |
 | `sharedauth.formatting` | `numero`, `inteiro`, `moeda`, `moeda_com_sinal` e `percentual`, com opções explícitas de ausência e zero. |
+| `sharedauth.config` | `ler_flag` (booleano de ambiente, estrito por padrão) e `montar_url_postgres` (URL de conexão com escape correto). Python puro. |
+| `sharedauth.secrets` | `ler_arquivo_de_segredo` e `resolver_segredo`: `NOME_FILE` antes de `NOME`, recusa ausente e vazio, trava opcional do caminho esperado. Nenhuma mensagem carrega o valor. Python puro. |
 | `sharedauth.ui` | Assets CSS/JS, caminho para estáticos no Django, blueprint estático no Flask, severidades, ícones SVG e global Jinja. |
 | `sharedauth.passwords` | Piso de senha, validação, hash e conferência por Werkzeug. |
-| `sharedauth.session` | Configuração dos cookies de sessão e de “lembrar-me” no Flask. |
+| `sharedauth.session` | Configuração dos cookies de sessão e de “lembrar-me” no Flask, incluindo a duração de cada um. |
 | `sharedauth.csrf` | Inicialização isolada de `CSRFProtect` por app Flask. |
-| `sharedauth.ratelimit` | Inicialização isolada de `Limiter` por app e política padrão de login de 10 tentativas por minuto. |
-| `sharedauth.access` | Proteção padrão-nega para rotas Flask, com redirect HTML, resposta de API e `HX-Redirect`. |
+| `sharedauth.ratelimit` | Inicialização isolada de `Limiter` por app, política padrão de login de 10 tentativas por minuto, política opcional do consumidor e `aplicar_limite`/`isentar_limite` por endpoint. |
+| `sharedauth.access` | Proteção padrão-nega para rotas Flask, com redirect HTML, resposta de API e `HX-Redirect`; e `requer_papel` para a verificação binária de papel na view. |
 | `sharedauth.messages` | Blueprint com templates de flash normal/OOB para HTMX e CSS das quatro severidades. |
 | `sharedauth.health` | Registro de `GET /health`, sonda opcional e isenção explícita do limiter. |
 

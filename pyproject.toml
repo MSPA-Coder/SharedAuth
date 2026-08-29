@@ -1,6 +1,6 @@
 [project]
 name = "sharedauth"
-version = "0.6.0"
+version = "0.7.0"
 description = "Contratos compartilhados de autenticação, segurança, formatação e interface"
 requires-python = ">=3.13"
 # O núcleo permanece sem dependências para que `security`, `formatting` e `ui`

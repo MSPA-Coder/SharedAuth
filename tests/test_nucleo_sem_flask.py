@@ -24,6 +24,8 @@ def test_security_e_formatting_nao_arrastam_flask_nem_werkzeug() -> None:
         "import sharedauth.secrets;"
         # `sharedauth.ui` expõe assets sem exigir a integração Flask.
         "import sharedauth.ui;"
+        # `logs` sanitiza texto de terceiro; só `re`.
+        "import sharedauth.logs;"
         "proibidos = [m for m in sys.modules if m.split('.')[0] in "
         "('flask', 'werkzeug', 'flask_wtf', 'flask_limiter')];"
         "print(','.join(sorted(proibidos)))"

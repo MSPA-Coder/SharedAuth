@@ -3,7 +3,12 @@ from __future__ import annotations
 import pytest
 from flask import Flask
 
-from sharedauth.access import requer_login, requer_papel, requer_troca_de_senha
+from sharedauth.access import (
+    requer_login,
+    requer_papel,
+    requer_troca_de_senha,
+    url_proximo_seguro,
+)
 
 
 def _montar_app(*, usar_hx_redirect: bool, autenticado: list[bool]) -> Flask:
@@ -85,7 +90,12 @@ def test_chave_do_erro_json_e_configuravel() -> None:
     def api_dado():
         return {"ok": True}
 
-    from sharedauth.access import requer_login, requer_papel, requer_troca_de_senha
+    from sharedauth.access import (
+    requer_login,
+    requer_papel,
+    requer_troca_de_senha,
+    url_proximo_seguro,
+)
 
     requer_login(
         app,
@@ -370,3 +380,86 @@ def test_a_trava_convive_com_requer_login_na_mesma_aplicacao() -> None:
     )
     resposta = app.test_client().get("/protegida", follow_redirects=False)
     assert resposta.headers["Location"] == "/trocar-senha"
+
+
+# --- url_proximo_seguro ---------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "destino",
+    [
+        "/",
+        "/apostas",
+        "/apostas?periodo=recente",
+        "/relatorios/2026?a=1&b=2",
+        "/caminho%20com%20espaco",
+        # Segmento com barra codificada: continua sendo UM segmento, e interno.
+        "/arquivos/a%2Fb",
+    ],
+)
+def test_caminho_interno_e_aceito(destino: str) -> None:
+    assert url_proximo_seguro(destino) == destino
+
+
+@pytest.mark.parametrize(
+    "destino",
+    [
+        None,
+        "",
+        # Endereço absoluto: o caso que motiva a função existir.
+        "https://outro.site",
+        "http://outro.site/x",
+        # Protocolo relativo -- o navegador lê como outro host.
+        "//outro.site",
+        "//outro.site/x",
+        "/%2F%2Foutro.site",
+        # Barra invertida, que vários navegadores normalizam para "/".
+        r"/\outro.site",
+        r"\\outro.site",
+        "/%5C%5Coutro.site",
+        # Caminho relativo: seria resolvido contra a página atual.
+        "apostas",
+        "../admin",
+        # Esquema exótico.
+        "javascript:alert(1)",
+        "data:text/html,x",
+        # Caractere de controle escondido na codificação.
+        "/%09/outro.site",
+        "/%0d%0aSet-Cookie:%20x=1",
+        # Credencial embutida, que faz o host verdadeiro passar despercebido.
+        "//usuario@outro.site",
+    ],
+)
+def test_destino_externo_ou_normalizavel_e_recusado(destino) -> None:
+    assert url_proximo_seguro(destino) is None
+
+
+def test_o_valor_devolvido_e_o_original_e_nao_o_decodificado() -> None:
+    # Decodificar muda o significado do caminho: `%2F` é parte do segmento, `/`
+    # separa segmentos. Redirecionar para a forma decodificada mandaria a
+    # pessoa para outro lugar do próprio aplicativo.
+    assert url_proximo_seguro("/arquivos/a%2Fb") == "/arquivos/a%2Fb"
+
+
+def test_decodificacao_aninhada_nao_escapa_da_checagem() -> None:
+    # `%252F` -> `%2F` -> `/`. A checagem tem de valer em TODA volta, não só na
+    # primeira nem só na última.
+    assert url_proximo_seguro("/%252F%252Foutro.site") is None
+
+
+def test_a_funcao_e_pura_e_nao_precisa_de_requisicao() -> None:
+    # Sem contexto de aplicação nem de requisição: cada consumidor entrega o
+    # `next` por um caminho diferente (query, campo escondido), e só a decisão
+    # é compartilhada.
+    assert url_proximo_seguro("/x") == "/x"
+
+
+def test_o_next_gerado_por_requer_login_e_aceito_de_volta() -> None:
+    # As duas pontas do mesmo contrato: o que `requer_login` põe na URL tem de
+    # passar por `url_proximo_seguro` na volta.
+    app = _montar_app(usar_hx_redirect=False, autenticado=[False])
+    resposta = app.test_client().get("/protegida?a=1", follow_redirects=False)
+
+    gerado = resposta.headers["Location"].split("next=", 1)[1]
+
+    assert url_proximo_seguro(gerado) == gerado

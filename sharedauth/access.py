@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from functools import wraps
 from typing import TYPE_CHECKING, Callable, TypeVar
+from urllib.parse import unquote, urlsplit
 
 from flask import abort, jsonify, make_response, redirect, request, url_for
 
@@ -160,6 +161,71 @@ def requer_troca_de_senha(
             return jsonify({chave_erro_api: mensagem_api}), 403
 
         return redirect(url_for(endpoint_troca))
+
+
+def url_proximo_seguro(valor: str | None) -> str | None:
+    """Devolve o destino pós-login **apenas** quando ele é um caminho interno.
+
+    :func:`requer_login` gera ``?next=`` sempre que barra alguém; esta função é
+    o outro lado do contrato, e existe porque o valor volta pelo navegador —
+    ou seja, é texto de terceiro. Sem a checagem,
+    ``?next=https://outro.site`` transforma a tela de login num
+    redirecionador aberto: o endereço na barra é o do aplicativo, a pessoa
+    digita a senha, e o destino é de quem montou o link.
+
+    **Recebe o valor, não o pega da requisição.** Cada aplicativo entrega o
+    ``next`` por um caminho diferente (query da URL, campo escondido do
+    formulário), e essa escolha é dele; a decisão de segurança é que tem de ser
+    a mesma. Como efeito, é uma função pura, testável sem contexto de
+    requisição.
+
+    Aceita o caminho com query string: ``/apostas?periodo=recente`` é
+    exatamente o que :func:`requer_login` produz.
+
+    **Devolve o valor ORIGINAL, não a forma decodificada.** Decodificar muda o
+    significado do caminho — ``/a%2Fb`` é um segmento só, e ``/a/b`` são dois.
+    A decodificação serve para *inspecionar*, e a inspeção percorre todas as
+    voltas: se nenhuma delas revelar algo externo, o original é seguro e é o
+    que o aplicativo gerou.
+
+    Recusa, a cada volta da decodificação:
+
+    - o que não começa com ``/`` (endereço absoluto, ou caminho relativo que o
+      navegador resolveria contra a página atual);
+    - ``//``, que o navegador lê como "outro host, mesmo protocolo";
+    - barra invertida, que vários navegadores normalizam para ``/``;
+    - caractere de controle, que some na normalização e pode esconder o resto.
+
+    E, no fim, exige que a forma totalmente decodificada continue sendo um
+    caminho: sem esquema, sem host.
+    """
+    if not valor or not valor.startswith("/"):
+        return None
+
+    decodificado = valor
+    # O teto pelo tamanho original termina mesmo sob aninhamento adversarial:
+    # cada `unquote` que altera a string encurta ao menos uma sequência `%xx`.
+    for _ in range(len(valor) + 1):
+        if (
+            decodificado.startswith("//")
+            or "\\" in decodificado
+            or any(ord(c) < 32 or ord(c) == 127 for c in decodificado)
+        ):
+            return None
+        seguinte = unquote(decodificado)
+        if seguinte == decodificado:
+            break
+        decodificado = seguinte
+    else:  # pragma: no cover - inalcançável com o teto acima
+        return None
+
+    try:
+        partes = urlsplit(decodificado)
+    except ValueError:
+        return None
+    if partes.scheme or partes.netloc or not partes.path.startswith("/"):
+        return None
+    return valor
 
 
 def requer_papel(

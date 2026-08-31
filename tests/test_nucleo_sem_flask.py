@@ -26,6 +26,11 @@ def test_security_e_formatting_nao_arrastam_flask_nem_werkzeug() -> None:
         "import sharedauth.ui;"
         # `logs` sanitiza texto de terceiro; só `re`.
         "import sharedauth.logs;"
+        # `passwords` traz a POLÍTICA (piso, alfabeto da senha temporária,
+        # regras da troca) em Python puro; o Werkzeug entra só nas funções de
+        # hash, na primeira chamada. O consumidor Django usa
+        # `gerar_senha_temporaria` sem instalar Flask.
+        "import sharedauth.passwords;"
         "proibidos = [m for m in sys.modules if m.split('.')[0] in "
         "('flask', 'werkzeug', 'flask_wtf', 'flask_limiter')];"
         "print(','.join(sorted(proibidos)))"

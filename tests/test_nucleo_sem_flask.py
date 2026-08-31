@@ -31,6 +31,10 @@ def test_security_e_formatting_nao_arrastam_flask_nem_werkzeug() -> None:
         # hash, na primeira chamada. O consumidor Django usa
         # `gerar_senha_temporaria` sem instalar Flask.
         "import sharedauth.passwords;"
+        # `session` só toca Flask em `configurar_sessao`, e o import de tipo
+        # dela fica sob TYPE_CHECKING. A amarra entre sessão e senha é Python
+        # puro, e o consumidor Django ou de sessão própria precisa dela.
+        "import sharedauth.session;"
         "proibidos = [m for m in sys.modules if m.split('.')[0] in "
         "('flask', 'werkzeug', 'flask_wtf', 'flask_limiter')];"
         "print(','.join(sorted(proibidos)))"

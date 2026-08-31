@@ -34,19 +34,19 @@ Permanecem nos consumidores:
 
 ## Instalação e fronteira de dependências
 
-A versão atual é `0.8.0`. Os consumidores instalam diretamente da tag Git,
+A versão atual é `0.9.0`. Os consumidores instalam diretamente da tag Git,
 sem acompanhar branch ou usar instalação editável.
 
 Aplicativo que usa somente o núcleo:
 
 ```text
-sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.8.0
+sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.9.0
 ```
 
 Aplicativo Flask:
 
 ```text
-sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.8.0
+sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.9.0
 ```
 
 O pacote-base não declara dependências. Estes módulos podem ser importados
@@ -79,7 +79,7 @@ demais módulos e para as funções Flask de `security` e `ui`.
 | `sharedauth.session` | Configuração dos cookies de sessão e de “lembrar-me” no Flask, incluindo a duração de cada um. |
 | `sharedauth.csrf` | Inicialização isolada de `CSRFProtect` por app Flask. |
 | `sharedauth.ratelimit` | Inicialização isolada de `Limiter` por app, política padrão de login de 10 tentativas por minuto, política opcional do consumidor e `aplicar_limite`/`isentar_limite` por endpoint. |
-| `sharedauth.access` | Proteção padrão-nega para rotas Flask, com redirect HTML, resposta de API e `HX-Redirect`; `requer_papel` para a verificação binária de papel na view; e `requer_troca_de_senha`, que prende na tela de troca quem está com senha temporária. |
+| `sharedauth.access` | Proteção padrão-nega para rotas Flask, com redirect HTML, resposta de API e `HX-Redirect`; `requer_papel` para a verificação binária de papel na view; `requer_troca_de_senha`, que prende na tela de troca quem está com senha temporária; e `url_proximo_seguro`, o outro lado do `?next=` que a própria proteção gera. |
 | `sharedauth.messages` | Blueprint com templates de flash normal/OOB para HTMX e CSS das quatro severidades. |
 | `sharedauth.health` | Registro de `GET /health`, sonda opcional e isenção explícita do limiter. |
 

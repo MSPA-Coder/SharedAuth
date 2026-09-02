@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import logging
+from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Any
 
 from flask_limiter import Limiter
@@ -20,6 +21,30 @@ __all__ = [
 
 LIMITE_LOGIN_PADRAO = "10 per minute"
 
+_logger = logging.getLogger(__name__)
+
+
+def _app_tem_proxyfix(app: Flask) -> bool:
+    """Percorre a cadeia de middlewares WSGI do app em busca de ``ProxyFix``.
+
+    Anda pelo atributo ``.app`` porque outro middleware pode estar registrado
+    por cima — a ordem de registro em ``wsgi_app`` não é garantida ser a
+    última.
+    """
+    try:
+        from werkzeug.middleware.proxy_fix import ProxyFix
+    except ImportError:  # pragma: no cover - Werkzeug é dependência do extra
+        return False
+
+    camada = app.wsgi_app
+    vistas: set[int] = set()
+    while camada is not None and id(camada) not in vistas:
+        if isinstance(camada, ProxyFix):
+            return True
+        vistas.add(id(camada))
+        camada = getattr(camada, "app", None)
+    return False
+
 
 def iniciar_limiter(
     app: Flask,
@@ -28,6 +53,7 @@ def iniciar_limiter(
     storage_uri: str | None = None,
     estrategia: str | None = None,
     habilitado: bool = True,
+    key_func: Callable[[], str] | None = None,
 ) -> Limiter:
     """Cria e inicializa uma instância própria para ``app``.
 
@@ -36,7 +62,7 @@ def iniciar_limiter(
     singleton entre apps no mesmo processo pode apagar contadores existentes.
     Cada app recebe a sua própria instância.
 
-    Os quatro parâmetros opcionais existem para que um consumidor com política
+    Os parâmetros opcionais existem para que um consumidor com política
     própria continue dentro deste contrato em vez de montar o seu ``Limiter``
     por fora — que foi o que aconteceu, e é como um app deixa de receber as
     correções feitas nos outros. A biblioteca não decide a política: ela recebe
@@ -51,9 +77,34 @@ def iniciar_limiter(
     app continua vencendo (é assim que o Flask-Limiter resolve os dois), então
     um consumidor que hoje configura por ``app.config`` não muda de
     comportamento ao adotar os parâmetros.
+
+    ``key_func`` decide por qual chave o limite é contado; o padrão,
+    ``get_remote_address``, é o endereço IP da conexão TCP. **Atrás de um
+    proxy reverso sem ``ProxyFix`` registrado em ``app.wsgi_app``, esse
+    endereço é sempre o do proxy** — todo o tráfego real cai no mesmo balde, e
+    o limite por IP vira, na prática, um limite global. Quando não é passado
+    ``key_func`` e há ``limites_padrao`` configurado, esta função emite um
+    aviso de log se não encontrar ``ProxyFix`` na cadeia de middlewares — não
+    é erro porque a aplicação pode estar atrás de outro mecanismo de extração
+    de IP, mas o silêncio é exatamente como esse tipo de configuração perigosa
+    passa despercebido.
     """
+    if (
+        key_func is None
+        and limites_padrao is not None
+        and habilitado
+        and not _app_tem_proxyfix(app)
+    ):
+        _logger.warning(
+            "iniciar_limiter: %s usa o IP remoto (get_remote_address) sem "
+            "ProxyFix registrado em wsgi_app. Atrás de um proxy reverso, "
+            "todo o tráfego cai no mesmo balde de limite. Registre "
+            "werkzeug.middleware.proxy_fix.ProxyFix ou passe key_func.",
+            app.name,
+        )
+
     limiter = Limiter(
-        key_func=get_remote_address,
+        key_func=key_func or get_remote_address,
         default_limits=list(limites_padrao) if limites_padrao is not None else None,
         storage_uri=storage_uri,
         strategy=estrategia,

@@ -180,3 +180,76 @@ def test_caminho_esperado_e_repassado(tmp_path: Path) -> None:
 def test_le_do_os_environ_quando_ambiente_nao_e_passado(monkeypatch) -> None:
     monkeypatch.setenv("SHAREDAUTH_TESTE_SEGREDO", "valor-do-ambiente")
     assert resolver_segredo("SHAREDAUTH_TESTE_SEGREDO") == "valor-do-ambiente"
+
+
+# --------------------------------------------------------------------------
+# resolver_segredo: valores_recusados e comprimento_minimo (SA-04)
+# --------------------------------------------------------------------------
+
+
+def test_valor_direto_recusado_por_ser_de_exemplo() -> None:
+    with pytest.raises(SegredoInvalidoError, match="exemplo"):
+        resolver_segredo(
+            "SECRET_KEY",
+            ambiente={"SECRET_KEY": "troque-por-um-segredo-forte"},
+            valores_recusados=frozenset({"troque-por-um-segredo-forte"}),
+        )
+
+
+def test_valor_direto_fora_da_lista_recusada_passa() -> None:
+    assert (
+        resolver_segredo(
+            "SECRET_KEY",
+            ambiente={"SECRET_KEY": "um-valor-qualquer-que-nao-e-exemplo"},
+            valores_recusados=frozenset({"troque-por-um-segredo-forte"}),
+        )
+        == "um-valor-qualquer-que-nao-e-exemplo"
+    )
+
+
+def test_valor_de_arquivo_tambem_e_checado_contra_recusados(
+    tmp_path: Path,
+) -> None:
+    # Um placeholder copiado para dentro do arquivo montado é igualmente
+    # inválido -- a checagem não pode valer só para a variável direta.
+    caminho = tmp_path / "secret_key"
+    caminho.write_text("troque-por-um-segredo-forte", encoding="utf-8")
+    with pytest.raises(SegredoInvalidoError, match="exemplo"):
+        resolver_segredo(
+            "SECRET_KEY",
+            ambiente={"SECRET_KEY_FILE": str(caminho)},
+            valores_recusados=frozenset({"troque-por-um-segredo-forte"}),
+        )
+
+
+def test_mensagem_de_valor_recusado_nao_contem_o_valor() -> None:
+    with pytest.raises(SegredoInvalidoError) as erro:
+        resolver_segredo(
+            "SECRET_KEY",
+            ambiente={"SECRET_KEY": "troque-por-um-segredo-forte"},
+            valores_recusados=frozenset({"troque-por-um-segredo-forte"}),
+        )
+    assert "troque-por-um-segredo-forte" not in str(erro.value)
+
+
+def test_comprimento_minimo_recusa_valor_curto() -> None:
+    with pytest.raises(SegredoInvalidoError, match="10"):
+        resolver_segredo(
+            "SECRET_KEY", ambiente={"SECRET_KEY": "curto"}, comprimento_minimo=10
+        )
+
+
+def test_comprimento_minimo_aceita_valor_exatamente_no_piso() -> None:
+    assert (
+        resolver_segredo(
+            "SECRET_KEY",
+            ambiente={"SECRET_KEY": "1234567890"},
+            comprimento_minimo=10,
+        )
+        == "1234567890"
+    )
+
+
+def test_sem_valores_recusados_nem_comprimento_minimo_nao_muda_comportamento() -> None:
+    # Compatibilidade: quem não passa os parâmetros novos não é afetado.
+    assert resolver_segredo("SECRET_KEY", ambiente={"SECRET_KEY": "x"}) == "x"

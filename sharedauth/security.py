@@ -85,6 +85,7 @@ def registrar_cabecalhos(
     alvo: Flask | Blueprint,
     *,
     imagens_data_uri: bool = False,
+    hsts_segundos: int | None = None,
 ) -> None:
     """Aplica :data:`SECURITY_HEADERS` e a CSP em toda resposta do app.
 
@@ -99,6 +100,15 @@ def registrar_cabecalhos(
     :data:`CABECALHO_DE_APRESENTACAO`. Só HTML: acrescentá-lo aos estáticos
     faria um cache guardar duas cópias de cada arquivo sem nenhum ganho, já que
     nenhum estático é pedido por HTMX.
+
+    ``hsts_segundos`` publica ``Strict-Transport-Security`` quando informado
+    (``None``, o padrão, não publica nada). Passe a mesma flag de ambiente que
+    o consumidor já usa para decidir ``SESSION_COOKIE_SECURE`` — sob HTTP puro
+    de desenvolvimento, o navegador ignora o cabeçalho, mas ele não deveria ser
+    emitido de qualquer forma. Um valor comum é ``15552000`` (180 dias). Esta
+    função não acrescenta ``preload``: entrar na lista de preload do navegador
+    é uma submissão manual e irreversível por domínio, decisão do consumidor,
+    não desta biblioteca.
     """
     csp = montar_csp(imagens_data_uri=imagens_data_uri)
 
@@ -106,6 +116,11 @@ def registrar_cabecalhos(
         for cabecalho, valor in SECURITY_HEADERS.items():
             resposta.headers.setdefault(cabecalho, valor)
         resposta.headers.setdefault("Content-Security-Policy", csp)
+        if hsts_segundos is not None:
+            resposta.headers.setdefault(
+                "Strict-Transport-Security",
+                f"max-age={hsts_segundos}; includeSubDomains",
+            )
         if "text/html" in resposta.headers.get("Content-Type", ""):
             resposta.vary.add(CABECALHO_DE_APRESENTACAO)
         return resposta

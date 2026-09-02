@@ -146,3 +146,38 @@ def test_vary_preexistente_e_preservado() -> None:
     vary = resposta.headers.get("Vary", "")
     assert "Accept-Language" in vary
     assert "HX-Request" in vary
+
+
+# ---------------------------------------------------------------------------
+# Strict-Transport-Security (SA-01)
+# ---------------------------------------------------------------------------
+
+
+def test_hsts_ausente_por_padrao(app: Flask) -> None:
+    registrar_cabecalhos(app)
+    assert "Strict-Transport-Security" not in _cabecalhos(app)
+
+
+def test_hsts_publicado_quando_pedido(app: Flask) -> None:
+    registrar_cabecalhos(app, hsts_segundos=15552000)
+    valor = _cabecalhos(app)["Strict-Transport-Security"]
+    assert "max-age=15552000" in valor
+    assert "includeSubDomains" in valor
+
+
+def test_hsts_nao_publica_preload() -> None:
+    app = Flask(__name__)
+    registrar_cabecalhos(app, hsts_segundos=15552000)
+    assert "preload" not in _cabecalhos(app)["Strict-Transport-Security"]
+
+
+def test_hsts_respeita_valor_ja_definido_pelo_app() -> None:
+    app = Flask(__name__)
+    registrar_cabecalhos(app, hsts_segundos=15552000)
+
+    @app.get("/proprio")
+    def proprio():
+        return "ok", 200, {"Strict-Transport-Security": "max-age=1"}
+
+    resposta = app.test_client().get("/proprio")
+    assert resposta.headers["Strict-Transport-Security"] == "max-age=1"

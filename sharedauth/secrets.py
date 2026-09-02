@@ -90,6 +90,30 @@ def ler_arquivo_de_segredo(
     return valor
 
 
+def _validar_valor_do_segredo(
+    nome: str,
+    valor: str,
+    *,
+    valores_recusados: frozenset[str],
+    comprimento_minimo: int | None,
+) -> None:
+    """Recusa um valor de exemplo ou curto demais para ser um segredo real.
+
+    Roda depois de resolvido, para o mesmo alvo tanto vindo de arquivo quanto
+    de variável direta — um placeholder de ``.env.docker`` esquecido em
+    produção é tão inválido quanto um copiado para o arquivo montado.
+    """
+    if valor in valores_recusados:
+        raise SegredoInvalidoError(
+            f"{nome} está com um valor de exemplo ou reaproveitado de "
+            "desenvolvimento. Gere um valor próprio para esta implantação."
+        )
+    if comprimento_minimo is not None and len(valor) < comprimento_minimo:
+        raise SegredoInvalidoError(
+            f"{nome} tem menos de {comprimento_minimo} caracteres."
+        )
+
+
 def resolver_segredo(
     nome: str,
     *,
@@ -97,6 +121,8 @@ def resolver_segredo(
     aceitar_variavel: bool = True,
     caminho_esperado: Path | None = None,
     obrigatorio: bool = False,
+    valores_recusados: frozenset[str] = frozenset(),
+    comprimento_minimo: int | None = None,
 ) -> str | None:
     """Resolve ``NOME_FILE`` (o caminho) antes de ``NOME`` (o valor direto).
 
@@ -116,6 +142,16 @@ def resolver_segredo(
 
     ``NOME_FILE`` definida mas vazia é **erro**, não ausência: alguém quis
     conceder o segredo por arquivo e a concessão está quebrada.
+
+    ``valores_recusados`` é o conjunto de valores que o consumidor sabe serem
+    placeholder — tipicamente o que está escrito no `.env.*.example` do
+    próprio projeto. Um segredo resolvido que caia num desses valores é
+    tratado como não configurado da forma mais perigosa possível: a aplicação
+    sobe, mas com um segredo público. ``comprimento_minimo`` cobre o caso em
+    que o placeholder é curto o bastante para nem precisar ser citado (por
+    exemplo ``"changeme"``). As duas checagens valem tanto para o valor lido
+    de arquivo quanto para a variável direta — um segredo de exemplo copiado
+    para dentro do arquivo montado é igualmente inválido.
     """
     valores = ambiente
     if valores is None:
@@ -123,18 +159,27 @@ def resolver_segredo(
 
         valores = os.environ
 
+    valor: str | None = None
     caminho = valores.get(f"{nome}_FILE")
     if caminho is not None:
         if not caminho.strip():
             raise SegredoInvalidoError(f"{nome}_FILE não pode estar vazio.")
-        return ler_arquivo_de_segredo(
+        valor = ler_arquivo_de_segredo(
             f"{nome}_FILE", caminho.strip(), caminho_esperado=caminho_esperado
         )
-
-    if aceitar_variavel:
+    elif aceitar_variavel:
         direto = valores.get(nome)
         if direto:
-            return direto
+            valor = direto
+
+    if valor is not None:
+        _validar_valor_do_segredo(
+            nome,
+            valor,
+            valores_recusados=valores_recusados,
+            comprimento_minimo=comprimento_minimo,
+        )
+        return valor
 
     if obrigatorio:
         se_aceita = f" ou {nome} com o valor" if aceitar_variavel else ""

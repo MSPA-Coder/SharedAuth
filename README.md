@@ -73,7 +73,8 @@ demais módulos e para as funções Flask de `security` e `ui`.
 | `sharedauth.security` | Cabeçalhos defensivos, CSP fechada por padrão, `montar_csp` e registro em Flask/Blueprint. |
 | `sharedauth.formatting` | `numero`, `inteiro`, `moeda`, `moeda_com_sinal` e `percentual`, com opções explícitas de ausência e zero. |
 | `sharedauth.config` | `ler_flag` (booleano de ambiente, estrito por padrão) e `montar_url_postgres` (URL de conexão com escape correto). Python puro. |
-| `sharedauth.secrets` | `ler_arquivo_de_segredo` e `resolver_segredo`: `NOME_FILE` antes de `NOME`, recusa ausente e vazio, trava opcional do caminho esperado. Nenhuma mensagem carrega o valor. Python puro. |
+| `sharedauth.secrets` | `ler_arquivo_de_segredo` e `resolver_segredo`: `NOME_FILE` antes de `NOME`, recusa ausente, vazio, valor de exemplo (`valores_recusados`) e curto demais (`comprimento_minimo`), trava opcional do caminho esperado. Nenhuma mensagem carrega o valor. Python puro. |
+| `sharedauth.logs` | `sanitizar_log`: redige credencial reconhecível (`CHAVES_SENSIVEIS`) e neutraliza injeção de linha antes de um texto de fora ir para o log. Rede, não garantia — a defesa primária é não pôr segredo em mensagem. Python puro. |
 | `sharedauth.ui` | Assets CSS/JS, caminho para estáticos no Django, blueprint estático no Flask, severidades, ícones SVG e global Jinja. |
 | `sharedauth.passwords` | Piso de senha, validação, hash e conferência por Werkzeug; senha temporária para reset pelo administrador e validação da troca feita pelo próprio dono. |
 | `sharedauth.session` | Configuração dos cookies de sessão e de “lembrar-me” no Flask, incluindo a duração de cada um; e a amarra entre a sessão e a senha em vigor (`marca_de_sessao`, `marcas_conferem`, `identificador_de_sessao`, `separar_identificador`), que faz a troca de senha derrubar as sessões abertas em outros lugares. Esta segunda metade é Python puro. |

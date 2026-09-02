@@ -214,3 +214,65 @@ def test_isentar_endpoint_desconhecido_falha_alto() -> None:
     limiter = iniciar_limiter(app)
     with pytest.raises(KeyError, match="coletor.health"):
         isentar_limite(app, limiter, "coletor.health")
+
+
+# --------------------------------------------------------------------------
+# key_func e aviso de ProxyFix ausente (SA-02)
+# --------------------------------------------------------------------------
+
+
+def test_key_func_customizado_e_usado() -> None:
+    chamadas: list[str] = []
+
+    def chave() -> str:
+        chamadas.append("chamou")
+        return "sempre-a-mesma-chave"
+
+    app = _app()
+    iniciar_limiter(app, limites_padrao=["1 per minute"], key_func=chave)
+
+    @app.get("/qualquer")
+    def qualquer():
+        return "ok"
+
+    cliente = app.test_client()
+    assert cliente.get("/qualquer").status_code == 200
+    # A segunda bate na mesma chave e estoura -- prova que get_remote_address
+    # não é mais quem decide o balde.
+    assert cliente.get("/qualquer").status_code == 429
+    assert chamadas
+
+
+def test_aviso_quando_default_sem_proxyfix(caplog: pytest.LogCaptureFixture) -> None:
+    app = _app()
+    with caplog.at_level("WARNING", logger="sharedauth.ratelimit"):
+        iniciar_limiter(app, limites_padrao=["10 per minute"])
+    assert any("ProxyFix" in registro.message for registro in caplog.records)
+
+
+def test_sem_aviso_quando_proxyfix_presente(caplog: pytest.LogCaptureFixture) -> None:
+    from werkzeug.middleware.proxy_fix import ProxyFix
+
+    app = _app()
+    app.wsgi_app = ProxyFix(app.wsgi_app)  # type: ignore[method-assign]
+    with caplog.at_level("WARNING", logger="sharedauth.ratelimit"):
+        iniciar_limiter(app, limites_padrao=["10 per minute"])
+    assert not caplog.records
+
+
+def test_sem_aviso_quando_key_func_customizado(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    app = _app()
+    with caplog.at_level("WARNING", logger="sharedauth.ratelimit"):
+        iniciar_limiter(app, limites_padrao=["10 per minute"], key_func=lambda: "x")
+    assert not caplog.records
+
+
+def test_sem_aviso_quando_nao_ha_limites_padrao(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    app = _app()
+    with caplog.at_level("WARNING", logger="sharedauth.ratelimit"):
+        iniciar_limiter(app)
+    assert not caplog.records

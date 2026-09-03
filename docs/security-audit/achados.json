@@ -1,0 +1,255 @@
+{
+  "projeto": "SharedAuth",
+  "data": "1 de setembro de 2026",
+  "escopo": "Repositório SharedAuth na íntegra (v0.10.0): os 12 módulos de `sharedauth/`, os dois pacotes de recursos (`messages/`, `ui/`), os templates e o JavaScript embarcados, `pyproject.toml`, o workflow de CI e o histórico completo do Git.",
+  "stack": {
+    "Linguagem": "Python 3.13+",
+    "Tipo de artefato": "Biblioteca (não é aplicação: sem rotas próprias, sem banco, sem contêiner)",
+    "Framework": "Núcleo sem dependências; integrações opcionais com Flask 3.1+, Flask-WTF, Flask-Limiter e Werkzeug pelo extra `[flask]`",
+    "ORM / query builder": "Nenhum — a biblioteca não fala com banco (só monta a URL de conexão)",
+    "Mecanismo de auth": "Sessão de cookie assinado do Flask + Flask-Login no consumidor; CSRF por Flask-WTF; hash de senha por Werkzeug; portão padrão-nega por `before_request`",
+    "Frontend": "CSS e JavaScript puros (`ui/estatico/`) e dois parciais Jinja de mensagens",
+    "Deploy": "Nenhum — não há Dockerfile, Compose ou Helm. Só `.github/workflows/ci.yml` e `.github/dependabot.yml`",
+    "Consumidores": "ConfortoTermico, MegaSena, ControleRendaVariavel (extra `[flask]`) e ControleBancario (só o núcleo)"
+  },
+  "nota_metodologica": "SharedAuth não é uma aplicação: não tem rota, banco, tela nem arquivo de implantação. Isso não torna as cinco categorias inaplicáveis — torna-as aplicáveis ao CONTRATO que a biblioteca oferece aos quatro aplicativos que a consomem. A pergunta auditada não é 'esta rota vaza dado?', e sim 'este contrato permite que o consumidor construa uma rota que vaza dado sem que nada acuse?'. Onde a categoria realmente não tem equivalente, isso está dito de forma explícita na seção 2.3, sem forçar achado.",
+  "metodologia": [
+    {
+      "categoria": "1. Banco sem tranca (isolamento de inquilino/dono)",
+      "mapeamento": "Não há banco nem consulta na biblioteca. O que existe é o contrato do módulo `access`, que decide QUAIS rotas do consumidor exigem sessão. Auditado como: o portão padrão-nega falha fechado? Uma rota nova nasce protegida? Foi conferido também que a biblioteca deliberadamente NÃO decide papéis ou escopo de dado — isso fica com cada aplicativo."
+    },
+    {
+      "categoria": "2. Permissão definida no navegador",
+      "mapeamento": "Cruzamento do que a biblioteca oferece para o servidor (`requer_papel`, `requer_login`, `requer_troca_de_senha`) com o que ela oferece para a tela (parciais de mensagem, `ui/estatico`). Auditado se algum controle de acesso depende de estado que só existe no cliente."
+    },
+    {
+      "categoria": "3. IDOR",
+      "mapeamento": "Não há rota nem objeto por ID. O equivalente auditado é o único identificador que a biblioteca manipula: o par `id:marca` do cookie de sessão (`session.identificador_de_sessao` / `separar_identificador`) e a comparação da marca de senha."
+    },
+    {
+      "categoria": "4. Chaves expostas (hardcode)",
+      "mapeamento": "Varredura do código, dos testes, do `pyproject.toml`, do workflow de CI e do histórico completo do Git por segredo embutido; e leitura do contrato de `sharedauth.secrets`, que é o mecanismo pelo qual os quatro consumidores obtêm segredo."
+    },
+    {
+      "categoria": "5. Inputs sem tratamento (XSS)",
+      "mapeamento": "Frontend: `ui/estatico/sharedauth-ui.js` (modal e toast montados no navegador) e os dois parciais Jinja de `messages/`. Backend: não há resposta HTML gerada em Python além desses parciais, e não há e-mail nem template renderizado pela biblioteca."
+    }
+  ],
+  "resumo": "SharedAuth foi auditada linha por linha e não apresenta nenhuma falha crítica, alta ou média. É a peça mais bem construída do conjunto: o portão de acesso falha fechado, a leitura de segredo nunca coloca o valor numa mensagem de erro, o componente de interface monta todo o DOM por `createElement`/`textContent` (zero `innerHTML` com dado de terceiro) e o histórico do Git não guarda segredo nenhum. Os cinco achados abaixo são de severidade baixa ou informativa e têm um traço em comum: são omissões do CONTRATO, não defeitos de implementação. A biblioteca acerta o que faz; o que ela deixa de fazer é impedir que o consumidor erre — e o efeito disso já é observável nos aplicativos irmãos (ver SA-02 e SA-04, que reaparecem como achados concretos nos relatórios de MegaSena, ControleRendaVariavel e ControleBancario).",
+  "pontos_fortes": [
+    {
+      "titulo": "Portão de acesso padrão-nega, com registro único garantido",
+      "detalhe": "`requer_login` lista os endpoints PÚBLICOS, não os protegidos — uma rota acrescentada amanhã nasce fechada. E o registro duplicado levanta `RuntimeError` em vez de deixar a primeira chamada silenciosamente vencedora, que seria a falha mais difícil de enxergar num controle de acesso.",
+      "evidencia": "sharedauth/access.py:58-84"
+    },
+    {
+      "titulo": "Troca de senha obrigatória verificada em TODA requisição",
+      "detalhe": "`requer_troca_de_senha` roda como `before_request`, não só no login, e isenta automaticamente o próprio endpoint de troca. Aplicar o desvio apenas no instante do login deixaria a marca ligada e sem efeito: bastaria digitar outra URL para seguir com a senha que o administrador conhece.",
+      "evidencia": "sharedauth/access.py:143-163"
+    },
+    {
+      "titulo": "`url_proximo_seguro` fecha o redirecionamento aberto de forma completa",
+      "detalhe": "Decodifica em laço (com teto que termina sob aninhamento adversarial), recusa a cada volta o que não começa com `/`, o `//`, a barra invertida e todo caractere de controle, e ainda exige que a forma totalmente decodificada continue sendo caminho. Devolve o valor ORIGINAL, não o decodificado — decodificar mudaria o significado do caminho.",
+      "evidencia": "sharedauth/access.py:202-228"
+    },
+    {
+      "titulo": "Sessão amarrada à senha em vigor, com comparação em tempo constante",
+      "detalhe": "A marca é HMAC-SHA256 da senha guardada com a `SECRET_KEY` (não um hash simples: não se deriva de um vazamento só do banco), e `marcas_conferem` usa `hmac.compare_digest`. Marca ausente devolve `False` — recusa é o lado seguro.",
+      "evidencia": "sharedauth/session.py:96-134"
+    },
+    {
+      "titulo": "Nenhuma exceção de segredo carrega o valor do segredo",
+      "detalhe": "Todas as mensagens de `SegredoInvalidoError` nomeiam a variável e o que fazer, nunca o conteúdo. É exigência escrita do módulo, e a leitura linha a linha confirma que ela é cumprida nos quatro caminhos de erro.",
+      "evidencia": "sharedauth/secrets.py:62-108"
+    },
+    {
+      "titulo": "`caminho_esperado` impede que `NOME_FILE` vire seletor arbitrário de arquivo",
+      "detalhe": "Sem ele, quem controlasse o ambiente do processo apontaria `NOME_FILE` para qualquer arquivo legível e o conteúdo entraria como se fosse o segredo. A comparação é feita sobre caminhos resolvidos dos dois lados, então symlink e `..` não contornam.",
+      "evidencia": "sharedauth/secrets.py:80-91"
+    },
+    {
+      "titulo": "`montar_url_postgres` escapa cada componente com `quote(..., safe='')`",
+      "detalhe": "Uma senha contendo `@` partiria a URL no lugar errado e a conexão iria para um host que não é o pretendido; uma contendo `/` ou `:` produziria banco ou porta inventados. Falhas que não se anunciam como erro de escape.",
+      "evidencia": "sharedauth/config.py:139-142"
+    },
+    {
+      "titulo": "CSP fechada por padrão, sem `unsafe-inline` em nenhuma diretiva",
+      "detalhe": "`script-src` e `style-src` fecham em `'self'`; `object-src 'none'`; `frame-ancestors 'none'`; `base-uri 'self'`; `form-action 'self'`. A única folga (`img-src data:`) é opt-in por parâmetro e nenhum dos quatro consumidores a usa hoje.",
+      "evidencia": "sharedauth/security.py:53-81"
+    },
+    {
+      "titulo": "Componente de interface sem `innerHTML` com dado de terceiro",
+      "detalhe": "Modal e toast são montados por `document.createElement` e o texto entra por `textContent`; os ícones vêm de `createElementNS`. Varredura completa do arquivo (437 linhas) não encontrou `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `eval`, `new Function` nem `document.write`.",
+      "evidencia": "sharedauth/ui/estatico/sharedauth-ui.js:102-309"
+    },
+    {
+      "titulo": "Parciais Jinja com autoescape e severidade em lista fechada",
+      "detalhe": "A mensagem sai por `{{ mensagem }}` (autoescape do Jinja ligado) e a categoria é reduzida a uma das quatro severidades conhecidas antes de virar classe CSS — uma categoria inventada cai em `info` em vez de virar atributo arbitrário.",
+      "evidencia": "sharedauth/messages/templates/sharedauth/flash_messages.html:17-21"
+    },
+    {
+      "titulo": "Sem segredo no histórico do Git",
+      "detalhe": "Varredura de todos os commits por arquivo `.env`, `.pem`, `.key` e por padrões de atribuição de segredo em conteúdo: nada. O CI obtém o PAT de leitura por `secrets.SHAREDAUTH_READ_TOKEN` do GitHub, nunca de arquivo versionado.",
+      "evidencia": "git log --all (11 commits, v0.1.0..v0.10.0)"
+    },
+    {
+      "titulo": "`aplicar_limite` / `isentar_limite` religam `view_functions`",
+      "detalhe": "`RouteLimit.__call__` do Flask-Limiter devolve uma função NOVA; descartar o retorno deixa o limite decorado e nunca aplicado, sem erro e sem aviso. A biblioteca centraliza essa mecânica justamente porque o erro foi cometido três vezes, em três aplicativos diferentes.",
+      "evidencia": "sharedauth/ratelimit.py:115-138"
+    }
+  ],
+  "pontos_fracos": [
+    "A biblioteca decide muito bem o que faz e quase nada sobre o que o consumidor deixa de fazer. Os quatro achados de contrato (SA-01, SA-02, SA-04, SA-05) são todos da forma \"a biblioteca oferece o mecanismo correto, mas não tem como recusar o uso incorreto\" — e cada um deles tem, hoje, um achado concreto correspondente em pelo menos um dos quatro aplicativos consumidores.",
+    "O ponto mais consequente é SA-04: `resolver_segredo` aceita a variável direta por padrão e não olha o VALOR. É por essa porta que um segredo de desenvolvimento, guardado em texto claro num `.env` de máquina local, entraria como configuração operacional sem que nada acusasse. Nos três irmãos isso não chegou a virar exposição — os arquivos estavam fora do Git e fora da sincronização de nuvem —, mas a ausência da trava é o que faz depender de sorte em vez de contrato.",
+    "SA-02 é o segundo: o limitador chaveia por `get_remote_address`, e atrás de um proxy sem `ProxyFix` isso vira um balde único somando o mundo inteiro. Os quatro consumidores hoje resolvem isso corretamente por conta própria, mas a biblioteca não tem como saber disso nem como avisar quando alguém esquecer.",
+    "O piso de senha é de 8 caracteres, sem verificação contra senha comum ou vazada (SA-03). Para o modelo de uso destes aplicativos — poucas contas, todas provisionadas por um administrador — o risco prático é baixo, mas o piso é o mínimo defensável, não uma margem."
+  ],
+  "nao_aplicaveis": [
+    {
+      "categoria": "1. Banco sem tranca (RLS / filtro por tenant)",
+      "motivo": "SharedAuth não tem banco de dados, não emite consulta SQL e não conhece nenhum modelo de dado. A única função que toca PostgreSQL é `montar_url_postgres`, que monta a string de conexão e nada mais. O isolamento de dado é decisão de cada aplicativo consumidor e foi auditado nos relatórios deles."
+    },
+    {
+      "categoria": "3. IDOR (objeto por ID em rota)",
+      "motivo": "A biblioteca não registra nenhuma rota que receba ID de objeto. `sharedauth.health.registrar_health` cria a única rota do pacote (`GET /health`), que não aceita parâmetro e responde apenas `{servico, status}` — sem versão, sem nome de banco, sem contagem de registro. O único identificador manipulado é o par `id:marca` do cookie, coberto pelos pontos fortes."
+    },
+    {
+      "categoria": "5. XSS no backend (e-mail/template)",
+      "motivo": "A biblioteca não envia e-mail, não renderiza template próprio além dos dois parciais de mensagem (auditados e corretos) e não gera resposta HTML em nenhum outro ponto."
+    }
+  ],
+  "achados": [
+    {
+      "id": "SA-01",
+      "categoria": "4. Chaves expostas e endurecimento de configuração",
+      "severidade": "baixa",
+      "titulo": "`SECURITY_HEADERS` não inclui `Strict-Transport-Security`",
+      "arquivo": "sharedauth/security.py:41-50",
+      "descricao": "O conjunto defensivo compartilhado traz seis cabeçalhos (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `X-Permitted-Cross-Domain-Policies`) e nenhum HSTS. `registrar_cabecalhos` também não o acrescenta.",
+      "trecho": "SECURITY_HEADERS: dict[str, str] = {\n    \"X-Content-Type-Options\": \"nosniff\",\n    \"X-Frame-Options\": \"DENY\",\n    \"Referrer-Policy\": \"same-origin\",\n    \"Permissions-Policy\": (...),\n    \"Cross-Origin-Opener-Policy\": \"same-origin\",\n    \"X-Permitted-Cross-Domain-Policies\": \"none\",\n}",
+      "porque": "Nos três consumidores Flask o HSTS existe somente na camada do Nginx (verificado em `deploy/nginx/megasena.conf:26`). Um consumidor publicado sem esse proxy à frente — ou com um proxy reconfigurado sem a diretiva — perde o HSTS por inteiro, e nada na aplicação acusa a ausência. O quarto consumidor (ControleBancario, Django) não depende disso: define `SECURE_HSTS_SECONDS` por conta própria quando `USE_HTTPS=True`.",
+      "impacto": "Sem HSTS, a primeira requisição de um navegador que ainda não visitou o site pode ser feita em HTTP claro e ser interceptada (downgrade / SSL-strip) antes do redirecionamento para HTTPS. O cookie de sessão só não viaja porque `SESSION_COOKIE_SECURE` está ligado — a proteção depende inteiramente de esse outro interruptor estar correto (ver SA-04).",
+      "condicoes": "Só é explorável quando o aplicativo é servido por HTTPS sem um proxy que já emita HSTS, e contra um navegador na primeira visita (ou com o cache de HSTS expirado). Nas quatro implantações atuais o Nginx cobre o caso.",
+      "criterios": []
+    },
+    {
+      "id": "SA-02",
+      "categoria": "2. Autorização e proteções do servidor",
+      "severidade": "baixa",
+      "titulo": "O limitador chaveia por `get_remote_address` e a biblioteca não tem como saber se há proxy à frente",
+      "arquivo": "sharedauth/ratelimit.py:55-62",
+      "descricao": "`iniciar_limiter` fixa `key_func=get_remote_address`, que lê `REMOTE_ADDR`. Atrás de um proxy reverso sem `ProxyFix` (ou com o servidor WSGI apagando os cabeçalhos `X-Forwarded-*`), `REMOTE_ADDR` é o endereço do gateway — igual para todo mundo.",
+      "trecho": "limiter = Limiter(\n    key_func=get_remote_address,\n    default_limits=list(limites_padrao) if limites_padrao is not None else None,\n    ...\n)",
+      "porque": "Com a chave colapsada num único valor, o `default_limits` deixa de ser \"por cliente\" e vira um balde único: quem tenta força bruta divide o orçamento com todos os usuários legítimos, e num aplicativo que faz polling isso é autobloqueio esperando a hora. Não é hipótese — é exatamente o que aconteceu no ConfortoTermico, e o comentário que corrige o problema está escrito em `app_factory.py:309-336` daquele projeto.",
+      "impacto": "Onde o consumidor esquecer o `ProxyFix`, a proteção de força bruta do login existe no código e não existe em produção, sem nenhum sintoma até alguém ir medir.",
+      "condicoes": "Depende inteiramente do consumidor. Os quatro aplicativos auditados hoje resolvem corretamente (variável de ambiente + `ProxyFix`, e no ConfortoTermico também a configuração de `trusted_proxy` do waitress). O achado é sobre o contrato não oferecer nem `key_func` configurável nem aviso.",
+      "criterios": []
+    },
+    {
+      "id": "SA-03",
+      "categoria": "2. Autorização e proteções do servidor",
+      "severidade": "informativa",
+      "titulo": "Política de senha é só o piso de 8 caracteres, sem lista de senhas comuns",
+      "arquivo": "sharedauth/passwords.py:26 e 52-56",
+      "descricao": "`MIN_PASSWORD_LENGTH = 8` e `validar_tamanho` é a única regra aplicada por `gerar_hash`. Não há verificação contra senha comum, contra semelhança com o nome de usuário nem contra lista de senhas vazadas.",
+      "trecho": "MIN_PASSWORD_LENGTH = 8\n\ndef validar_tamanho(senha: str) -> None:\n    if len(senha) < MIN_PASSWORD_LENGTH:\n        raise SenhaMuitoCurtaError(...)",
+      "porque": "`senha123` e `12345678` passam. Combinado com o limite de 10 tentativas por minuto por IP (`LIMITE_LOGIN_PADRAO`), um adivinhador com lista curta ainda tem várias centenas de tentativas por hora contra uma conta conhecida.",
+      "impacto": "Baixo no modelo de uso real: são poucas contas, todas provisionadas por um administrador, e a senha inicial é sempre a temporária gerada por `gerar_senha_temporaria` — 12 caracteres num alfabeto de 58, cerca de 70 bits de entropia, sorteados com `secrets.choice`. O risco fica na senha que o dono escolhe DEPOIS da troca obrigatória.",
+      "condicoes": "Exige uma conta cujo dono tenha escolhido senha fraca e um adivinhador que conheça o nome de usuário. O ControleBancario mitiga por conta própria, com bloqueio persistente por tentativa e o `CommonPasswordValidator` do Django.",
+      "criterios": []
+    },
+    {
+      "id": "SA-04",
+      "categoria": "4. Chaves expostas e endurecimento de configuração",
+      "severidade": "baixa",
+      "titulo": "`resolver_segredo` aceita a variável direta por padrão e nunca olha o valor",
+      "arquivo": "sharedauth/secrets.py:93-141",
+      "descricao": "O padrão é `aceitar_variavel=True`: na ausência de `NOME_FILE`, qualquer valor não vazio em `NOME` é aceito como segredo. A função valida a PROCEDÊNCIA (arquivo existe, não está vazio, resolve para o caminho esperado) e nunca o CONTEÚDO — não há gancho para recusar um valor de exemplo, um placeholder de documentação ou um segredo compartilhado com o ambiente de desenvolvimento.",
+      "trecho": "    if aceitar_variavel:\n        direto = valores.get(nome)\n        if direto:\n            return direto",
+      "porque": "É por essa porta que um segredo de máquina local pode virar configuração operacional sem nada acusar. Os relatórios irmãos registram a forma branda do efeito: `MegaSena/.env.docker`, `ControleRendaVariavel/.env` e `ControleBancario/.env.docker` guardam senha de banco e chave de sessão em texto claro, duplicando o que já está em `.secrets/`. Nenhum deles vazou — os três estavam fora do Git e fora da sincronização de nuvem, verificado —, e é justamente por isso que o achado é de contrato: nada na biblioteca impediria o contrário, porque nada olha o valor.",
+      "impacto": "A biblioteca não cria o problema, mas é o único ponto onde ele poderia ser barrado de uma vez para os quatro consumidores. Como está, cada aplicativo teria de escrever a mesma validação por conta própria — que é justamente o padrão que este pacote existe para evitar.",
+      "condicoes": "Não é explorável por si só: é a ausência de uma trava. Torna-se relevante em conjunto com um segredo fraco, de exemplo ou reaproveitado do ambiente local.",
+      "criterios": []
+    },
+    {
+      "id": "SA-05",
+      "categoria": "5. Inputs sem tratamento",
+      "severidade": "informativa",
+      "titulo": "`sanitizar_log` é rede por reconhecimento de padrão, e o próprio módulo diz isso",
+      "arquivo": "sharedauth/logs.py:73-122",
+      "descricao": "A redação de credencial usa três expressões regulares (atribuição `chave=valor`, esquema `Bearer`/`Basic`, senha embutida em URL de conexão) sobre uma lista fechada de 12 nomes sensíveis. Um segredo que apareça sem nome reconhecível ao lado atravessa a função sem ser redigido.",
+      "trecho": "CHAVES_SENSIVEIS: frozenset[str] = frozenset({\n    \"senha\", \"password\", \"passwd\", \"secret\", \"token\", \"authorization\",\n    \"api_key\", \"apikey\", \"access_key\", \"private_key\",\n    \"credential\", \"credentials\",\n})",
+      "porque": "A neutralização de quebra de linha e de caractere de controle — que é a parte que impede a forja de uma linha de log inteira — essa sim é completa e não depende de reconhecimento. O limite está só na redação de credencial.",
+      "impacto": "Um segredo com nome fora da lista (por exemplo `chave_de_assinatura=` ou `pat=`) chegaria ao log em texto claro. Registrado como informativo porque o módulo declara essa limitação no próprio docstring e aponta a defesa primária correta: não pôr segredo em mensagem, que é o que `sharedauth.secrets` já garante.",
+      "condicoes": "Exige que algum consumidor registre em log um valor sensível cujo rótulo esteja fora da lista.",
+      "criterios": []
+    }
+  ],
+  "recomendacoes": [
+    {
+      "prioridade": "P1",
+      "texto": "Acrescentar a `resolver_segredo` um parâmetro de recusa de valor (por exemplo `valores_recusados: frozenset[str]` e/ou um piso de comprimento), para que os quatro consumidores possam rejeitar no boot um segredo de exemplo ou reaproveitado de desenvolvimento. É a única correção deste relatório que fecha, de uma vez, uma lacuna presente em três dos quatro aplicativos irmãos.",
+      "achados": [
+        "SA-04"
+      ]
+    },
+    {
+      "prioridade": "P2",
+      "texto": "Publicar `Strict-Transport-Security` a partir da própria biblioteca, atrás de um parâmetro explícito de `registrar_cabecalhos` (por exemplo `hsts_segundos: int | None = None`), alimentado pela mesma flag de ambiente que o consumidor já usa para decidir `SESSION_COOKIE_SECURE`. Assim a garantia deixa de depender de a camada do Nginx estar correta em cada implantação.",
+      "achados": [
+        "SA-01"
+      ]
+    },
+    {
+      "prioridade": "P2",
+      "texto": "Permitir que `iniciar_limiter` receba `key_func`, e documentar no docstring que usar o padrão sem um `ProxyFix` correspondente colapsa o limitador num balde único. Opcionalmente, emitir aviso de log no boot quando `default_limits` estiver definido e o app não tiver `ProxyFix` no `wsgi_app`.",
+      "achados": [
+        "SA-02"
+      ]
+    },
+    {
+      "prioridade": "P3",
+      "texto": "Elevar o piso de senha ou acrescentar uma verificação contra as senhas mais comuns em `validar_tamanho` — a mesma regra passaria a valer nos quatro aplicativos de uma vez, como já acontece com o piso atual.",
+      "achados": [
+        "SA-03"
+      ]
+    },
+    {
+      "prioridade": "P3",
+      "texto": "Manter `sanitizar_log` como está e reforçar no README dos consumidores que ela é rede, não garantia: a defesa primária é não pôr segredo em mensagem. Se algum consumidor precisar de um rótulo novo, ele entra em `CHAVES_SENSIVEIS`, na biblioteca, e não numa cópia local.",
+      "achados": [
+        "SA-05"
+      ]
+    }
+  ],
+  "issues": [
+    {
+      "n": 1,
+      "severidade": "baixa",
+      "titulo": "[Segurança] `resolver_segredo` aceita qualquer valor não vazio como segredo",
+      "labels": "security, severity:baixa, contrato-publico",
+      "corpo": "## Problema\n\n`sharedauth.secrets.resolver_segredo` valida a PROCEDÊNCIA do segredo (o arquivo\nexiste, não está vazio, resolve para `caminho_esperado`) e nunca o CONTEÚDO.\nCom o padrão `aceitar_variavel=True`, qualquer string não vazia na variável de\nambiente é aceita — inclusive um placeholder de documentação, um valor de\nexemplo ou um segredo reaproveitado da máquina de desenvolvimento.\n\n### Por que é explorável\n\nNão é explorável isoladamente: é a ausência de uma trava. O que a torna\nrelevante é que ela é o ÚNICO ponto em que os quatro consumidores poderiam ser\nprotegidos de uma vez. A forma branda do efeito está nos três irmãos:\n\n- `MegaSena/.env.docker` guarda `POSTGRES_PASSWORD` e `SECRET_KEY` em texto claro;\n- `ControleRendaVariavel/.env` guarda `SECRET_KEY`, `DATABASE_URL` (com senha) e `POSTGRES_PASSWORD`;\n- `ControleBancario/.env.docker` guarda `POSTGRES_PASSWORD` e `DJANGO_SECRET_KEY`.\n\nNenhum deles vazou: os arquivos estavam fora do Git e fora da sincronizacao de\nnuvem, verificado. E justamente esse o ponto -- nenhuma camada RECUSA esses\nvalores como entrada, porque nao existe camada que olhe valor. O que protegeu\nfoi a configuracao de ignore de cada projeto, nao o contrato.\n\n## Evidência\n\n`sharedauth/secrets.py:93-141`\n\n```python\ndef resolver_segredo(\n    nome: str,\n    *,\n    ambiente: Mapping[str, str] | None = None,\n    aceitar_variavel: bool = True,\n    caminho_esperado: Path | None = None,\n    obrigatorio: bool = False,\n) -> str | None:\n    ...\n    if aceitar_variavel:\n        direto = valores.get(nome)\n        if direto:\n            return direto\n```\n\n## Impacto\n\nUm segredo de desenvolvimento vira configuração operacional sem que nada acuse.\nComo a mesma função atende os quatro aplicativos, a lacuna é sistêmica: cada um\nteria de escrever a validação por conta própria — exatamente o padrão que este\npacote existe para eliminar. Hoje o que evita o desfecho ruim é a disciplina de\ncada projeto com `.gitignore` e `.dropboxignore`, não uma garantia do contrato.\n\n## Sugestão de correção\n\nAcrescentar recusa de valor ao contrato, sem mudar o comportamento de quem não\npedir:\n\n```python\ndef resolver_segredo(\n    nome: str,\n    *,\n    ...,\n    tamanho_minimo: int | None = None,\n    valores_recusados: frozenset[str] = frozenset(),\n) -> str | None:\n```\n\n- `valores_recusados` compara em minúsculas e sem espaço nas pontas, e levanta\n  `SegredoInvalidoError` nomeando a variável — **nunca o valor** (a regra atual\n  do módulo, que deve continuar valendo);\n- `tamanho_minimo` cobre o caso mais comum sem exigir lista;\n- ambos valem também para o segredo lido por arquivo, não só para a forma direta.\n\nDepois de publicar a versão, abrir a issue correspondente em cada um dos quatro\nconsumidores para passarem a informar os parâmetros.\n\n## Critérios de aceite\n\n- [ ] `resolver_segredo` aceita `valores_recusados` e `tamanho_minimo`, ambos opcionais e desligados por padrão\n- [ ] A recusa levanta `SegredoInvalidoError` e a mensagem NÃO contém o valor recusado\n- [ ] A validação vale tanto para `NOME_FILE` quanto para `NOME`\n- [ ] Teste: valor na lista de recusados levanta; valor equivalente com outra caixa e espaço nas pontas também levanta\n- [ ] Teste: valor abaixo de `tamanho_minimo` levanta\n- [ ] Teste: a mensagem da exceção não contém nenhum trecho do valor recusado\n- [ ] Chamada sem os novos parâmetros mantém exatamente o comportamento atual (teste de regressão)\n- [ ] Tag nova publicada e o CHANGELOG/README registrando o contrato novo"
+    },
+    {
+      "n": 2,
+      "severidade": "baixa",
+      "titulo": "[Segurança] HSTS ausente do conjunto defensivo compartilhado",
+      "labels": "security, severity:baixa, cabecalhos",
+      "corpo": "## Problema\n\n`SECURITY_HEADERS` traz seis cabeçalhos defensivos e nenhum\n`Strict-Transport-Security`. `registrar_cabecalhos` também não o acrescenta.\nNos três consumidores Flask, o HSTS existe apenas na camada do Nginx.\n\n### Por que é explorável\n\nUm consumidor publicado por HTTPS sem esse proxy à frente — ou com o proxy\nreconfigurado sem a diretiva — fica sem HSTS por completo, e nada na aplicação\nacusa a ausência. A primeira requisição de um navegador que ainda não visitou o\nsite pode então ser feita em HTTP claro e interceptada antes do redirecionamento\n(SSL-strip). Hoje, o que impede o cookie de sessão de viajar nesse cenário é\napenas `SESSION_COOKIE_SECURE` — uma segunda flag, que pode estar errada de\nforma independente.\n\n## Evidência\n\n`sharedauth/security.py:41-50`\n\n```python\nSECURITY_HEADERS: dict[str, str] = {\n    \"X-Content-Type-Options\": \"nosniff\",\n    \"X-Frame-Options\": \"DENY\",\n    \"Referrer-Policy\": \"same-origin\",\n    \"Permissions-Policy\": (\n        \"camera=(), microphone=(), geolocation=(), browsing-topics=()\"\n    ),\n    \"Cross-Origin-Opener-Policy\": \"same-origin\",\n    \"X-Permitted-Cross-Domain-Policies\": \"none\",\n}\n```\n\nOnde o HSTS de fato existe hoje (fora da biblioteca):\n`MegaSena/deploy/nginx/megasena.conf:26`\n\n```\nadd_header Strict-Transport-Security \"max-age=31536000\" always;\n```\n\n## Impacto\n\nA garantia de transporte depende de configuração fora do repositório da\naplicação, replicada por implantação, sem teste que a cubra. É a classe de\ncontrole que some numa recriação de servidor sem ninguém notar.\n\n## Sugestão de correção\n\nEmitir HSTS a partir da biblioteca, atrás de um parâmetro explícito — nunca\nincondicional, porque numa instalação local servida por HTTP o cabeçalho\ntrancaria o navegador num esquema que ninguém atende:\n\n```python\ndef registrar_cabecalhos(\n    alvo: Flask | Blueprint,\n    *,\n    imagens_data_uri: bool = False,\n    hsts_segundos: int | None = None,\n    hsts_incluir_subdominios: bool = True,\n) -> None:\n```\n\nO consumidor alimenta `hsts_segundos` com a MESMA flag que já usa para decidir\n`https_obrigatorio` em `configurar_sessao` — assim as duas decisões não podem\ndivergir. `setdefault` mantém a precedência de quem já define o cabeçalho.\n\n## Critérios de aceite\n\n- [ ] `registrar_cabecalhos` aceita `hsts_segundos` (padrão `None` = não emite)\n- [ ] Com `hsts_segundos=31536000`, a resposta traz `Strict-Transport-Security: max-age=31536000; includeSubDomains`\n- [ ] Com o padrão, nenhuma resposta ganha o cabeçalho (regressão para instalação local em HTTP)\n- [ ] O valor emitido respeita `setdefault`: um consumidor que já defina o cabeçalho continua vencendo\n- [ ] Teste cobrindo os três casos acima\n- [ ] README documenta que o parâmetro deve ser alimentado pela mesma flag de `configurar_sessao(https_obrigatorio=...)`"
+    },
+    {
+      "n": 3,
+      "severidade": "baixa",
+      "titulo": "[Segurança] Limitador chaveia por REMOTE_ADDR sem forma de o consumidor ajustar",
+      "labels": "security, severity:baixa, rate-limit",
+      "corpo": "## Problema\n\n`iniciar_limiter` fixa `key_func=get_remote_address`. Atrás de um proxy reverso\nsem `ProxyFix` — ou com um servidor WSGI que apague os cabeçalhos\n`X-Forwarded-*`, como o waitress faz por padrão — `REMOTE_ADDR` é o endereço do\ngateway, igual para todas as requisições.\n\n### Por que é explorável\n\nCom a chave colapsada, `default_limits` deixa de ser \"por cliente\" e vira um\nbalde único somando o mundo inteiro: quem tenta força bruta divide o orçamento\ncom os usuários legítimos, e num aplicativo que faz polling isso é autobloqueio\nesperando a hora. Não é hipótese — foi o comportamento real do ConfortoTermico,\ndescrito em `app_factory.py:309-336` daquele repositório, onde o balde único\nsomava todos os clientes e ainda envenenava o IP registrado na auditoria.\n\n## Evidência\n\n`sharedauth/ratelimit.py:55-62`\n\n```python\n    limiter = Limiter(\n        key_func=get_remote_address,\n        default_limits=list(limites_padrao) if limites_padrao is not None else None,\n        storage_uri=storage_uri,\n        strategy=estrategia,\n        enabled=habilitado,\n    )\n```\n\n## Impacto\n\nOnde o consumidor esquecer o `ProxyFix`, a proteção de força bruta do login\nexiste no código e não existe em produção, sem sintoma até alguém ir medir. Os\nquatro consumidores atuais resolvem corretamente por conta própria, mas a\nbiblioteca não tem como saber disso nem como avisar quando alguém esquecer.\n\n## Sugestão de correção\n\nDuas mudanças pequenas e independentes:\n\n1. aceitar `key_func` opcional em `iniciar_limiter`, mantendo\n   `get_remote_address` como padrão;\n2. no boot, quando `limites_padrao` estiver definido e `app.wsgi_app` não for um\n   `ProxyFix`, emitir um `logger.warning` dizendo que o limitador pode estar\n   chaveando pelo IP do proxy. Aviso, não erro: há instalações legítimas sem\n   proxy nenhum.\n\n## Critérios de aceite\n\n- [ ] `iniciar_limiter` aceita `key_func`, com `get_remote_address` como padrão\n- [ ] Teste: `key_func` própria é de fato usada pelo `Limiter` construído\n- [ ] Teste: chamada sem `key_func` mantém o comportamento atual\n- [ ] O aviso de boot aparece quando há `default_limits` e não há `ProxyFix`, e não aparece nos demais casos\n- [ ] O docstring explica a armadilha do balde único, com o caso do ConfortoTermico como exemplo"
+    },
+    {
+      "n": 4,
+      "severidade": "informativa",
+      "titulo": "[Segurança] Política de senha limitada ao piso de 8 caracteres",
+      "labels": "security, severity:informativa, senhas",
+      "corpo": "## Problema\n\nA política de senha da biblioteca é uma regra só: `len(senha) >= 8`. Não há\nverificação contra senha comum, contra semelhança com o nome de usuário nem\ncontra lista de senhas vazadas. Como `gerar_hash` é o caminho único de gravação\nnos três consumidores Flask, essa é a política efetiva deles.\n\n### Por que é explorável\n\n`senha123` e `12345678` passam. Com o limite padrão de 10 tentativas por minuto\npor IP, um adivinhador com lista curta ainda dispõe de várias centenas de\ntentativas por hora contra uma conta cujo nome ele conheça.\n\n## Evidência\n\n`sharedauth/passwords.py:26` e `sharedauth/passwords.py:52-56`\n\n```python\nMIN_PASSWORD_LENGTH = 8\n\ndef validar_tamanho(senha: str) -> None:\n    \"\"\"Levanta :class:`SenhaMuitoCurtaError` se a senha for curta demais.\"\"\"\n    if len(senha) < MIN_PASSWORD_LENGTH:\n        raise SenhaMuitoCurtaError(\n            f\"A senha deve ter pelo menos {MIN_PASSWORD_LENGTH} caracteres.\"\n        )\n```\n\n## Impacto\n\nBaixo no modelo de uso atual: poucas contas, todas provisionadas por um\nadministrador, e a senha inicial é sempre a temporária gerada por\n`gerar_senha_temporaria` (12 caracteres, alfabeto de 58, ~70 bits, sorteados com\n`secrets.choice`). O risco fica na senha que o dono escolhe DEPOIS da troca\nobrigatória — que é justamente a que vale por mais tempo.\n\n## Sugestão de correção\n\nAcrescentar a `validar_tamanho` (ou a uma `validar_politica` nova que a\nsubstitua nos pontos de gravação) uma checagem contra uma lista curta e\nembarcada de senhas comuns, e opcionalmente contra o nome de usuário quando o\nconsumidor puder informá-lo. Manter o piso de 8 ou elevá-lo é decisão do\nmantenedor, mas deve ser uma decisão explícita e registrada, não o padrão\nherdado.\n\nO ControleBancario já resolve isso por conta própria com o\n`CommonPasswordValidator` do Django — vale como referência do comportamento\nesperado.\n\n## Critérios de aceite\n\n- [ ] Existe verificação contra senha comum no caminho de gravação de senha\n- [ ] A exceção continua sendo um `ValueError` (para não quebrar quem já captura a família)\n- [ ] A mensagem de recusa não revela qual entrada da lista casou\n- [ ] Teste: `senha123` e `12345678` são recusadas; uma senha forte de 8 caracteres continua aceita\n- [ ] A decisão sobre manter ou elevar `MIN_PASSWORD_LENGTH` fica registrada no README ou num ADR"
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+# Arquivos que nunca devem ocupar espaco nem gerar trafego de sincronizacao no
+# Dropbox. Cobre o que e reconstruivel localmente (ambiente virtual, caches,
+# artefatos de build).
+#
+# Este projeto e uma biblioteca: nao tem `.env`, `.secrets/` nem `backups/`,
+# entao as secoes correspondentes dos irmaos nao aparecem aqui. Se algum dia
+# passar a ter, copie-as de `MegaSena/.dropboxignore`.
+
+.git/
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+ENV/
+
+# Caches de ferramentas
+__pycache__/
+*.pyc
+*.pyo
+.cache/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Artefatos de build
+build/
+dist/
+*.egg
+*.egg-info/
+
+# Ferramentas de agente
+.codex/
+.agents/
+.claude/
+*.mdc
+
+# Editor e sistema operacional
+.idea/
+*.code-workspace
+*.swp
+*.swo
+.dropbox
+.dropbox.cache/
+.dropbox.attr
+
+# Temporarios
+*.log
+*.tmp
+*.bak
+*.orig

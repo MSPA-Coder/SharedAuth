@@ -1,5 +1,69 @@
+# ---------------------------------------------------------------------------
+# Nucleo comum aos projetos irmaos. Mantenha esta secao em sincronia; o que for
+# especifico deste projeto vai no fim do arquivo.
+# ---------------------------------------------------------------------------
+
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+
+# Ambientes virtuais
 .venv/
-*.egg-info/
+venv/
+env/
+ENV/
+
+# Caches de ferramentas
+.cache/
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Empacotamento
+build/
+dist/
+*.egg
+*.egg-info/
+
+# Segredos e certificados
+.env
+.env.*
+!.env.example
+.certs/
+.secrets/
+
+# Ferramentas de agente
+.codex/
+.agents/
+.claude/
+
+# Editor: a configuracao compartilhada e versionada, o resto nao
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# ---------------------------------------------------------------------------
+# Especifico do SharedAuth
+# ---------------------------------------------------------------------------
+
+# Este projeto e uma biblioteca: nao tem `instance/`, `backups/` nem `logs/`,
+# entao as secoes correspondentes dos irmaos nao aparecem aqui. Se algum dia
+# passar a ter, copie-as de `MegaSena/.gitignore`.

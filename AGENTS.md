@@ -11,6 +11,14 @@ O nome `SharedAuth` pode permanecer mesmo cobrindo segurança, formatação e UI
 Renomear agora imporia mudanças de imports e dependências sem ganho de
 contrato.
 
+O código fica em `src/sharedauth/`, não na raiz. É o layout `src/`: o
+diretório de trabalho nunca coloca o pacote em `sys.path` por acidente, então
+`pytest` só o encontra porque ele está instalado -- e a suíte exercita
+exatamente o que os aplicativos consumidores recebem, arquivos de
+`package-data` inclusive. Com o layout plano anterior, um CSS que ficasse de
+fora do wheel passava despercebido, porque o teste lia o arquivo do
+repositório.
+
 Não mova para este pacote:
 
 - atomicidade, transações, modelos, migrations ou persistência de Django e
@@ -133,22 +141,41 @@ navegador, expiração de sessão e uma ação protegida por CSRF/confirmação.
 
 ## Validação
 
-Não instale Python, dependências, linters ou test runners no host. Este
-repositório não possui Compose nem Dockerfile; não adicione infraestrutura só
-para executar a suíte. Use a imagem oficial em contêiner efêmero, com a fonte
-montada somente para leitura:
+O loop normal é o venv do projeto:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+O `.venv/` é uma pasta do projeto, já ignorada pelo Git: não altera o Python
+do sistema nem o PATH, e apagar a pasta desfaz a instalação por inteiro. A
+proibição que vale é outra -- nada de instalar dependências do projeto no
+Python global do Windows.
+
+Este repositório não possui Compose nem Dockerfile, e não é para adicionar
+infraestrutura só para executar a suíte. Quando a validação em Linux importar
+(antes de publicar uma tag, por exemplo), use a imagem oficial em contêiner
+efêmero, com a fonte montada somente para leitura:
 
 ```powershell
 docker run --rm `
-  --mount "type=bind,source=$($PWD.Path),target=/workspace,readonly" `
-  --workdir /workspace `
+  --mount "type=bind,source=$($PWD.Path),target=/fonte,readonly" `
   python:3.13-slim `
-  sh -lc "python -m pip install --disable-pip-version-check '.[dev]' && python -m pytest -q -p no:cacheprovider"
+  sh -lc "cp -r /fonte /tmp/src && cd /tmp/src && python -m pip install --disable-pip-version-check '.[dev]' && python -m pytest -q -p no:cacheprovider"
 ```
 
+A cópia para `/tmp/src` não é enfeite: `pip install` grava metadados de build
+ao lado do `pyproject.toml`, e instalar direto sobre a montagem somente-leitura
+falha com `Cannot update time stamp of directory`. Copiar preserva a garantia
+que a montagem existia para dar -- o contêiner não escreve no repositório -- e
+ainda instala o pacote de verdade, não em modo editável, que é o que os
+aplicativos consumidores recebem.
+
 Se rede, proxy ou CA impedir o download, registre o bloqueio; não improvise uma
-instalação no host. Antes de encerrar, execute no host as verificações que não
-exigem runtime do projeto:
+instalação no Python global. Antes de encerrar, execute no host as verificações
+que não exigem runtime do projeto:
 
 ```powershell
 git diff --check

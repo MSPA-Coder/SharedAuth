@@ -29,7 +29,14 @@ dev = [
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
+# Layout `src/`: o pacote nao fica na raiz do repositorio, entao o diretorio
+# de trabalho nunca o coloca em `sys.path` por acidente. Consequencia
+# pratica: `pytest` so encontra `sharedauth` porque ele esta instalado, e
+# portanto exercita exatamente o que os quatro aplicativos recebem --
+# inclusive os arquivos de `package-data` abaixo, que com o layout plano
+# eram lidos do repositorio mesmo quando ficavam de fora do wheel.
 [tool.setuptools.packages.find]
+where = ["src"]
 include = ["sharedauth*"]
 
 [tool.setuptools.package-data]

@@ -16,8 +16,16 @@ name: CI
 on:
   push:
     branches: [main]
+  # Sem filtro de `branches`, de proposito: assim a verificacao roda em PR para
+  # QUALQUER base, e nao so para `main`.
+  #
+  # Com o filtro, um PR empilhado sobre outro branch nao disparava check
+  # nenhum -- e o sintoma e a ausencia de sinal, nao um vermelho: a pagina do
+  # PR fica limpa e parece aprovada. Aconteceu na fase F1.
+  #
+  # O `push` acima continua restrito a `main`: o que interessa la e o estado
+  # do branch que a producao espelha.
   pull_request:
-    branches: [main]
   workflow_dispatch:
   schedule:
     - cron: "0 6 * * 1"
@@ -38,7 +46,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.13"
+          # Acompanha o `requires-python` do `pyproject.toml`, que subiu para
+          # 3.14 em 07/09/2026 (achado L03). As duas coisas precisam andar
+          # juntas: com a CI em 3.13 e o piso em 3.14, o `pip install -e` aqui
+          # falharia -- e um piso testado numa versao que ele proprio recusa
+          # nao prova nada.
+          python-version: "3.14"
       - run: python -m pip install -e ".[dev]"
       - run: python -m pytest -q
 

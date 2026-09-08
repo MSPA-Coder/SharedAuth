@@ -2,7 +2,14 @@
 name = "sharedauth"
 version = "0.11.0"
 description = "Contratos compartilhados de autenticação, segurança, formatação e interface"
-requires-python = ">=3.13"
+# Piso elevado a 3.14 em 07/09/2026 (achado L03 do LEVANTAMENTO_2026-09.md).
+# A politica da casa e alargar o teto e preservar o piso, e ela continua
+# valendo -- o motivo aqui e outro: o piso declarava uma compatibilidade que
+# NINGUEM verificava. Todas as imagens rodam `python:3.14-slim` e nenhum job
+# jamais executou a suite em 3.12 ou 3.13. Declarar 3.14 e dizer a verdade
+# sobre o unico ambiente exercitado; voltar atras exige uma matriz na CI que
+# realmente rode nas versoes menores.
+requires-python = ">=3.14"
 # O núcleo permanece sem dependências para que `security`, `formatting` e `ui`
 # sejam importáveis sem carregar um framework web. Integrações Flask usam o extra.
 dependencies = []

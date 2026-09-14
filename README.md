@@ -11,7 +11,9 @@ os contratos oferecidos.
 
 ## Escopo e critérios de entrada
 
-Um contrato novo só pertence a este pacote quando atende a todos os critérios:
+Os critérios abaixo orientam o que pertence a este pacote. São um filtro para
+ele não virar depósito, não um portão: um caso que fuja deles pode entrar, com o
+motivo registrado na mudança.
 
 - há necessidade real em pelo menos dois consumidores atuais;
 - o contrato é coeso e pode ser testado de forma isolada;
@@ -19,9 +21,9 @@ Um contrato novo só pertence a este pacote quando atende a todos os critérios:
   explícito;
 - não há dependência de banco de dados nem de regras de domínio.
 
-Conveniência futura, uma única chamada duplicada ou a tentativa de uniformizar
-regras que são legitimamente diferentes entre aplicativos não justificam uma
-adição.
+Em geral, conveniência futura, uma única chamada duplicada ou a tentativa de
+uniformizar regras legitimamente diferentes entre aplicativos não bastam para
+uma adição.
 
 Permanecem nos consumidores:
 
@@ -34,19 +36,19 @@ Permanecem nos consumidores:
 
 ## Instalação e fronteira de dependências
 
-A versão atual é `0.10.0`. Os consumidores instalam diretamente da tag Git,
+A versão atual é `0.11.0`. Os consumidores instalam diretamente da tag Git,
 sem acompanhar branch ou usar instalação editável.
 
 Aplicativo que usa somente o núcleo:
 
 ```text
-sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.10.0
+sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.11.0
 ```
 
 Aplicativo Flask:
 
 ```text
-sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.10.0
+sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.11.0
 ```
 
 O pacote-base não declara dependências. Estes módulos podem ser importados
@@ -118,16 +120,16 @@ CSRF/confirmação, conforme o contrato alterado.
 ## Validação local sem instalar ferramentas no host
 
 O repositório não possui `compose.yaml` nem `Dockerfile`. Com Docker Desktop
-disponível, execute a suíte em um contêiner efêmero oficial do Python, montando
-a fonte somente para leitura:
+disponível, execute a suíte em um contêiner efêmero oficial do Python, na mesma
+versão que o `requires-python` exige, montando a fonte somente para leitura:
 
 ```powershell
 docker run --rm `
-  --mount "type=bind,source=$($PWD.Path),target=/workspace,readonly" `
-  --workdir /workspace `
-  python:3.13-slim `
-  sh -lc "python -m pip install --disable-pip-version-check '.[dev]' && python -m pytest -q -p no:cacheprovider"
+  --mount "type=bind,source=$($PWD.Path),target=/fonte,readonly" `
+  python:3.14-slim `
+  sh -lc "cp -r /fonte /tmp/src && cd /tmp/src && python -m pip install --disable-pip-version-check '.[dev]' && python -m pytest -q -p no:cacheprovider"
 ```
 
-O `pip` desse comando existe apenas no contêiner. A montagem somente para
-leitura e o cache do pytest desativado evitam artefatos na árvore de trabalho.
+O `pip` desse comando existe apenas no contêiner. A cópia para `/tmp/src` é
+necessária porque o `pip install` grava metadados ao lado do `pyproject.toml`;
+com ela e o cache do pytest desativado, nada é escrito na árvore de trabalho.

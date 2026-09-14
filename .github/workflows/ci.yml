@@ -1,17 +1,8 @@
 name: CI
 
-# Este workflow era o menos endurecido dos seis: `actions/checkout@v4` e
-# `ubuntu-latest`, sem `permissions` e sem `concurrency`, enquanto os quatro
-# aplicativos já fixavam action por SHA e versão de runner.
-#
-# A inversão importa: uma tag de action é um ponteiro móvel, e quem controla o
-# repositório da action pode reapontá-la. Fixar por SHA é o que torna a
-# execução reproduzível. Deixar isso de fora justamente na única dependência
-# compartilhada pelos quatro aplicativos era proteger as folhas e não a raiz.
-#
-# Os SHAs abaixo não foram procurados avulsos: são exatamente os que o
-# `BackupRestore` já usa, para os seis convergirem em vez de cada um fixar uma
-# versão diferente da mesma action.
+# Actions fixadas por SHA, runner fixo, `permissions` mínimas e `concurrency`:
+# uma tag de action é um ponteiro móvel, e esta é a dependência compartilhada
+# por todos os aplicativos. Os SHAs são os mesmos dos repositórios irmãos.
 
 on:
   push:

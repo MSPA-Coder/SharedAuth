@@ -3,9 +3,9 @@
 ## Papel e limite arquitetural
 
 SharedAuth é uma biblioteca interna, estreita e versionada. Ela mantém
-contratos transversais que já são compartilhados por múltiplos aplicativos;
-não deve crescer como um `commons` genérico nem assumir responsabilidades das
-aplicações consumidoras.
+contratos transversais que já são compartilhados por múltiplos aplicativos. A
+intenção é que continue estreita — sem virar um `commons` genérico nem assumir
+responsabilidades das aplicações consumidoras.
 
 O nome `SharedAuth` pode permanecer mesmo cobrindo segurança, formatação e UI.
 Renomear agora imporia mudanças de imports e dependências sem ganho de
@@ -19,7 +19,7 @@ exatamente o que os aplicativos consumidores recebem, arquivos de
 fora do wheel passava despercebido, porque o teste lia o arquivo do
 repositório.
 
-Não mova para este pacote:
+Em geral, fica fora deste pacote:
 
 - atomicidade, transações, modelos, migrations ou persistência de Django e
   SQLAlchemy;
@@ -28,7 +28,7 @@ Não mova para este pacote:
 - `SECRET_KEY`, outros segredos ou strings de conexão;
 - decisões operacionais específicas de um consumidor.
 
-Uma funcionalidade nova só entra quando todos estes critérios forem atendidos:
+Para decidir se uma funcionalidade nova entra, estes critérios orientam:
 
 1. existe necessidade concreta em pelo menos dois consumidores atuais;
 2. o contrato é coeso e testável isoladamente;
@@ -37,7 +37,8 @@ Uma funcionalidade nova só entra quando todos estes critérios forem atendidos:
 4. não existe dependência de banco de dados nem de domínio.
 
 Conveniência futura, uma chamada duplicada em apenas um app ou a tentativa de
-uniformizar regras diferentes não satisfazem esses critérios.
+uniformizar regras diferentes costumam não bastar. São orientação, não portão:
+um caso que fuja deles pode entrar, com o motivo registrado na mudança.
 
 ## Fronteira importável sem Flask
 
@@ -52,33 +53,21 @@ importáveis sem carregar Flask, Werkzeug, Flask-WTF ou Flask-Limiter:
 - `sharedauth.secrets`: leitura de segredo por arquivo é `pathlib` e
   `os.environ`, sem framework;
 - `sharedauth.ui`: caminho dos assets, severidades e SVG são independentes;
-  imports de Flask e MarkupSafe permanecem locais às funções de integração.
+  imports de Flask e MarkupSafe permanecem locais às funções de integração;
+- `sharedauth.logs`: sanitização de texto para log, em Python puro;
+- `sharedauth.passwords`: a política de senha é Python puro; o Werkzeug entra
+  só dentro das funções de hash, na primeira chamada;
+- `sharedauth.session`: a amarra entre sessão e senha é Python puro; o Flask
+  só entra em `configurar_sessao`.
 
 `tests/test_nucleo_sem_flask.py` guarda essa fronteira em um interpretador
-limpo. Tudo que exige Flask/Werkzeug pertence ao extra `[flask]`. Não mova um
-import de integração para o topo de `security` ou `ui`.
+limpo. Tudo que exige Flask/Werkzeug pertence ao extra `[flask]`; um import de
+integração no topo de um desses módulos quebra a fronteira, e o teste reprova.
 
-## Contratos existentes na v0.5.0
+## Contratos públicos
 
-- `security`: cabeçalhos defensivos, CSP e registro em Flask/Blueprint;
-- `formatting`: números, inteiros, moedas e percentuais em pt-BR;
-- `config`: leitura de flag booleana do ambiente (com modo estrito) e
-  montagem da URL do PostgreSQL com escape correto;
-- `secrets`: leitura de segredo concedido por arquivo, com `NOME_FILE` antes
-  de `NOME`, recusa de ausente e vazio, e trava opcional do caminho esperado;
-  nenhuma mensagem de erro carrega o valor do segredo;
-- `ui`: assets CSS/JS, integração de estáticos com Django ou Flask e ícones;
-- `passwords`: validação, hash e conferência de senha com Werkzeug;
-- `session`: opções de cookies de sessão e de “lembrar-me” no Flask,
-  incluindo a duração de ambos;
-- `csrf`: uma instância de `CSRFProtect` por app;
-- `ratelimit`: uma instância de `Limiter` por app, limite padrão de login,
-  política opcional do consumidor e aplicação/isenção de limite por endpoint;
-- `access`: proteção padrão-nega, respostas adequadas a HTML, API e HTMX, e
-  verificação binária de papel na camada de view;
-- `messages`: templates normal/OOB e CSS de mensagens Flask;
-- `health`: rota de saúde, sonda fornecida pelo consumidor e isenção opcional
-  do limiter.
+A lista de módulos e o contrato de cada um estão na tabela "Módulos públicos"
+do `README.md`, mantida num lugar só.
 
 ### Sobre o critério "não uniformizar regras diferentes"
 
@@ -109,12 +98,11 @@ monitoramento desse backend permanecem no consumidor.
 
 ## Versionamento e consumo
 
-Os consumidores fixam a dependência por tag Git. Use `v0.5.0` nos exemplos
-atuais:
+Os consumidores fixam a dependência por tag Git; a atual é `v0.11.0`:
 
 ```text
-sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.5.0
-sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.5.0
+sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.11.0
+sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.11.0
 ```
 
 Tags publicadas são imutáveis: nunca reescreva uma tag. Toda mudança pública
@@ -132,8 +120,7 @@ navegador, expiração de sessão e uma ação protegida por CSRF/confirmação.
 - Leia `AGENTS.md`, `README.md`, `pyproject.toml`, os módulos e os testes
   relacionados antes de editar.
 - Preserve mudanças locais não relacionadas.
-- Não adicione dependência sem satisfazer os critérios de entrada e sem
-  confirmar compatibilidade nos consumidores.
+- Dependência nova precisa ter a compatibilidade confirmada nos consumidores.
 - Mantenha defaults de segurança fechados; exceções precisam ser explícitas no
   ponto de consumo e cobertas por teste.
 - Toda alteração pública deve ter caminho feliz e caso de recusa ou falha.
@@ -154,15 +141,14 @@ do sistema nem o PATH, e apagar a pasta desfaz a instalação por inteiro. A
 proibição que vale é outra -- nada de instalar dependências do projeto no
 Python global do Windows.
 
-Este repositório não possui Compose nem Dockerfile, e não é para adicionar
-infraestrutura só para executar a suíte. Quando a validação em Linux importar
-(antes de publicar uma tag, por exemplo), use a imagem oficial em contêiner
-efêmero, com a fonte montada somente para leitura:
+Este repositório não possui Compose nem Dockerfile. Quando a validação em Linux
+importar (antes de publicar uma tag, por exemplo), use a imagem oficial em
+contêiner efêmero, com a fonte montada somente para leitura:
 
 ```powershell
 docker run --rm `
   --mount "type=bind,source=$($PWD.Path),target=/fonte,readonly" `
-  python:3.13-slim `
+  python:3.14-slim `
   sh -lc "cp -r /fonte /tmp/src && cd /tmp/src && python -m pip install --disable-pip-version-check '.[dev]' && python -m pytest -q -p no:cacheprovider"
 ```
 

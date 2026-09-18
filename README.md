@@ -36,7 +36,7 @@ Permanecem nos consumidores:
 
 ## Instalação e fronteira de dependências
 
-A versão atual é `0.11.0`. Os consumidores instalam diretamente da tag Git,
+A versão atual é `0.12.0`. Os consumidores instalam diretamente da tag Git,
 sem acompanhar branch ou usar instalação editável.
 
 Aplicativo que usa somente o núcleo:

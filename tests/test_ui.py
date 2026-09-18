@@ -173,6 +173,16 @@ def test_css_estiliza_as_quatro_severidades() -> None:
         assert f".sa-{severidade}" in css
 
 
+def test_css_entrega_componentes_visuais_sem_dominio() -> None:
+    """Cartão, métrica e barra servem a mais de um consumidor sem decidir
+    o que os números significam em cada tela."""
+    css = (CAMINHO_ESTATICO / ARQUIVO_CSS).read_text(encoding="utf-8")
+
+    for componente in (".sa-cartao", ".sa-metrica", ".sa-barra"):
+        assert componente in css
+    assert "patrim" not in css.casefold()
+
+
 def test_js_nao_escreve_estilo_inline() -> None:
     """A CSP é `style-src 'self'` sem `unsafe-inline`: `setAttribute('style')`
     é bloqueado pelo navegador, e a convenção do projeto é classe estática em

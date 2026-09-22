@@ -13,8 +13,10 @@ from sharedauth.ui import (
     CAMINHO_ESTATICO,
     SEVERIDADES,
     TRACOS_ICONE,
+    UM_ANO_EM_SEGUNDOS,
     registrar_ui,
     svg_icone,
+    url_do_asset,
 )
 
 
@@ -212,3 +214,86 @@ def test_a_versao_do_pacote_bate_com_a_do_pyproject() -> None:
     raiz = Path(__file__).resolve().parent.parent
     do_pyproject = tomllib.loads((raiz / "pyproject.toml").read_text(encoding="utf-8"))
     assert sharedauth.__version__ == do_pyproject["project"]["version"]
+
+
+# ---------------------------------------------------------------------------
+# Cache dos assets
+# ---------------------------------------------------------------------------
+
+
+def test_sem_max_age_o_comportamento_e_o_de_sempre() -> None:
+    """O padrao nao muda: quem ja usa `registrar_ui(app)` nao ganha prazo novo.
+
+    O Flask responde `no-cache` por padrao, e e o que as versoes anteriores
+    entregavam. Mudar isso por conta propria prenderia o navegador de quem ja
+    visitou o aplicativo num CSS antigo, sem a URL versionada para sair.
+    """
+    app = Flask(__name__)
+    registrar_ui(app)
+
+    resposta = app.test_client().get(f"/sharedauth/ui/{ARQUIVO_CSS}")
+
+    assert resposta.status_code == 200
+    assert f"max-age={UM_ANO_EM_SEGUNDOS}" not in resposta.headers.get(
+        "Cache-Control", ""
+    )
+
+
+def test_max_age_chega_ao_cabecalho_dos_dois_arquivos() -> None:
+    app = Flask(__name__)
+    registrar_ui(app, max_age_segundos=UM_ANO_EM_SEGUNDOS)
+
+    cliente = app.test_client()
+    for arquivo in (ARQUIVO_CSS, ARQUIVO_JS):
+        resposta = cliente.get(f"/sharedauth/ui/{arquivo}")
+        assert resposta.status_code == 200, arquivo
+        assert f"max-age={UM_ANO_EM_SEGUNDOS}" in resposta.headers["Cache-Control"], arquivo
+
+
+def test_max_age_nao_vaza_para_os_estaticos_do_consumidor() -> None:
+    """O prazo e do blueprint deste pacote; os estaticos do app nao sao assunto daqui."""
+    app = Flask(__name__)
+    registrar_ui(app, max_age_segundos=UM_ANO_EM_SEGUNDOS)
+
+    assert app.config["SEND_FILE_MAX_AGE_DEFAULT"] is None
+
+
+def test_url_do_asset_carimba_a_versao_do_pacote() -> None:
+    """Sem versao na URL, prazo longo vira armadilha: ver `url_do_asset`."""
+    from sharedauth import __version__
+
+    app = Flask(__name__)
+    registrar_ui(app)
+
+    with app.test_request_context():
+        url = url_do_asset(ARQUIVO_CSS)
+
+    assert ARQUIVO_CSS in url
+    assert f"v={__version__}" in url
+
+
+def test_url_do_asset_esta_disponivel_no_template() -> None:
+    app = Flask(__name__)
+    registrar_ui(app)
+
+    with app.test_request_context():
+        renderizado = app.jinja_env.from_string(
+            "{{ sharedauth_asset('" + ARQUIVO_CSS + "') }}"
+        ).render()
+
+    assert renderizado.startswith("/sharedauth/ui/")
+    assert "v=" in renderizado
+
+
+def test_a_url_versionada_serve_o_arquivo() -> None:
+    """A query nao pode fazer o Flask deixar de encontrar o estatico."""
+    app = Flask(__name__)
+    registrar_ui(app, max_age_segundos=UM_ANO_EM_SEGUNDOS)
+
+    with app.test_request_context():
+        url = url_do_asset(ARQUIVO_CSS)
+
+    resposta = app.test_client().get(url)
+
+    assert resposta.status_code == 200
+    assert f"max-age={UM_ANO_EM_SEGUNDOS}" in resposta.headers["Cache-Control"]

@@ -98,11 +98,11 @@ monitoramento desse backend permanecem no consumidor.
 
 ## Versionamento e consumo
 
-Os consumidores fixam a dependência por tag Git; a atual é `v0.12.0`:
+Os consumidores fixam a dependência por tag Git; a atual é `v0.13.0`:
 
 ```text
-sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.12.0
-sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.12.0
+sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.13.0
+sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.13.0
 ```
 
 Tags publicadas são imutáveis: nunca reescreva uma tag. Toda mudança pública

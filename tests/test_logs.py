@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from sharedauth.logs import MARCA_REDIGIDA, TAMANHO_MAXIMO, sanitizar_log
+from sharedauth.logs import (
+    MARCA_REDIGIDA,
+    TAMANHO_MAXIMO,
+    TETO_DE_ENTRADA,
+    sanitizar_log,
+)
 
 # ---------------------------------------------------------------------------
 # Injeção de linha -- o motivo principal do módulo
@@ -133,3 +138,65 @@ def test_a_funcao_nao_tem_efeito_colateral() -> None:
 
     assert original == copia
     assert "hunter2" in original
+
+
+# ---------------------------------------------------------------------------
+# Teto da entrada -- custo preso a um limite, nao ao tamanho da mensagem
+# ---------------------------------------------------------------------------
+
+
+def test_o_prefixo_da_chave_continua_fora_da_redacao() -> None:
+    """`db_password` e `X-Auth-Token` sao redigidos sem o prefixo entrar no match.
+
+    A expressao deixou de capturar o prefixo (custava uma varredura com volta
+    atras em cada posicao do texto). O prefixo permanece intocado no lugar, e a
+    string final tem de continuar sendo a mesma.
+    """
+    assert sanitizar_log("db_password=segredo") == f"db_password={MARCA_REDIGIDA}"
+    assert sanitizar_log("X-Auth-Token: abc.def") == f"X-Auth-Token: {MARCA_REDIGIDA}"
+    assert sanitizar_log('"db_password": "s"') == f'"db_password": {MARCA_REDIGIDA}'
+    assert sanitizar_log("a.b.c_apikey=9") == f"a.b.c_apikey={MARCA_REDIGIDA}"
+
+
+def test_chave_que_apenas_comeca_com_sufixo_sensivel_nao_e_redigida() -> None:
+    """`passwordfoo=x` nao e uma credencial: o sufixo tem de terminar a chave."""
+    assert sanitizar_log("passwordfoo=x") == "passwordfoo=x"
+
+
+def test_entrada_gigante_nao_e_inspecionada_inteira() -> None:
+    """O custo fica preso ao teto, e quem escolhe o tamanho da mensagem e de fora."""
+    limpo = sanitizar_log("x" * (TETO_DE_ENTRADA * 10))
+
+    assert len(limpo) < TAMANHO_MAXIMO + 20
+    assert limpo.endswith("[cortado]")
+
+
+def test_corte_da_entrada_marca_mesmo_quando_a_redacao_encolhe_abaixo_do_teto() -> None:
+    """Conteudo se perdeu; quem le o log precisa saber, mesmo com a saida curta."""
+    entrada = "senha=" + "z" * (TETO_DE_ENTRADA * 2)
+    limpo = sanitizar_log(entrada)
+
+    assert limpo == f"senha={MARCA_REDIGIDA}…[cortado]"
+    assert "z" not in limpo
+
+
+def test_segredo_partido_pelo_teto_nao_sobrevive() -> None:
+    """O corte da entrada nao pode deixar meio segredo sem redigir.
+
+    O caminho e estreito mas real: a primeira credencial encolhe o texto o
+    bastante para o que estava perto do TETO_DE_ENTRADA caber dentro do
+    TAMANHO_MAXIMO da saida. E ali que chega o valor partido pelo corte -- uma
+    aspa aberta que nunca fecha. Se a expressao exigisse o fechamento, esse
+    pedaco escaparia da redacao e iria para o log.
+    """
+    entrada = "senha=" + "z" * 7000 + ' password="' + "S3GR3D0" * 200
+    limpo = sanitizar_log(entrada)
+
+    assert limpo == f"senha={MARCA_REDIGIDA} password={MARCA_REDIGIDA}…[cortado]"
+    assert "S3GR3D0" not in limpo
+
+
+def test_aspas_sem_fechamento_sao_redigidas() -> None:
+    """Consequencia direta do fechamento opcional -- e o lado seguro."""
+    assert sanitizar_log('senha="hunter2') == f'senha={MARCA_REDIGIDA}'
+    assert sanitizar_log('senha="hunter2"') == f'senha={MARCA_REDIGIDA}'

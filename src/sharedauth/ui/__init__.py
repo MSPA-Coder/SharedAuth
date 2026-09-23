@@ -15,6 +15,17 @@ com ETag/304 de graça::
     <script src="{{ url_for('sharedauth_ui.static',
                             filename='sharedauth-ui.js') }}" defer></script>
 
+O ETag poupa o corpo da resposta, mas não a ida ao servidor: cada
+carregamento de página confirma os dois arquivos e recebe dois 304. Para
+trocar isso por cache local de verdade, ligue o prazo e use a URL versionada
+-- os dois juntos, nunca o prazo sozinho::
+
+    registrar_ui(app, max_age_segundos=UM_ANO_EM_SEGUNDOS)
+
+    # no template:
+    <link rel="stylesheet" href="{{ sharedauth_asset('sharedauth-ui.css') }}">
+    <script src="{{ sharedauth_asset('sharedauth-ui.js') }}" defer></script>
+
 **Django** -- acrescenta :data:`CAMINHO_ESTATICO` com prefixo em
 ``STATICFILES_DIRS``, e o WhiteNoise cuida do resto (inclusive nome com hash)::
 
@@ -113,27 +124,89 @@ def registrar_icone_jinja(app: Flask) -> None:
 
 _MARCA_REGISTRO = "sharedauth_ui_registrado"
 
+#: Um ano, o teto que a RFC 2616 recomendava e que os navegadores tratam como
+#: "para sempre". Só é seguro junto da URL versionada de :func:`url_do_asset`.
+UM_ANO_EM_SEGUNDOS = 31_536_000
 
-def registrar_ui(app: Flask) -> None:
+
+def url_do_asset(nome_arquivo: str) -> str:
+    """URL do asset com a versão do pacote na query (``?v=0.13.0``).
+
+    Existe para tornar ``max_age_segundos`` utilizável. Sem versão na URL, um
+    ``Cache-Control`` longo é uma armadilha: o navegador de quem já visitou o
+    aplicativo continua servindo o CSS antigo depois de o consumidor atualizar
+    a tag, e não há como forçar a atualização a não ser esperar o prazo vencer.
+
+    A versão do pacote é a chave certa **porque as tags deste repositório são
+    imutáveis por contrato** (ver `AGENTS.md`): o conteúdo destes arquivos não
+    muda sem a versão mudar junto, então uma URL versionada nunca aponta para
+    dois conteúdos diferentes. O inverso -- uma versão nova sem mudança no
+    asset -- custa um download de alguns kilobytes, uma vez por atualização.
+
+    Disponível nos templates como ``sharedauth_asset`` depois de
+    :func:`registrar_ui`::
+
+        <link rel="stylesheet" href="{{ sharedauth_asset('sharedauth-ui.css') }}">
+        <script src="{{ sharedauth_asset('sharedauth-ui.js') }}" defer></script>
+
+    Exige contexto de requisição, como o ``url_for`` que ela embrulha.
+    """
+    from flask import url_for
+
+    from .. import __version__
+
+    return url_for("sharedauth_ui.static", filename=nome_arquivo, v=__version__)
+
+
+def registrar_ui(app: Flask, *, max_age_segundos: int | None = None) -> None:
     """Serve o CSS e o JS deste pacote num app Flask.
 
     Chamar duas vezes é seguro: a segunda chamada não faz nada, em vez de
     derrubar o app com erro de blueprint duplicado. Mesmo padrão de
     :func:`sharedauth.messages.registrar_mensagens`.
+
+    ``max_age_segundos`` define o ``Cache-Control`` destes arquivos. Omitido --
+    o padrão, e o comportamento de todas as versões anteriores -- vale o do
+    Flask, que hoje é ``no-cache``: o navegador guarda o arquivo mas confirma a
+    validade a cada carregamento de página, e volta um 304. São duas idas ao
+    servidor por página que não trazem byte nenhum de conteúdo.
+
+    **Ligue junto com :func:`url_do_asset`, não sozinho.** Um prazo longo numa
+    URL sem versão prende o navegador no arquivo antigo depois que o consumidor
+    atualiza a tag. :data:`UM_ANO_EM_SEGUNDOS` é o valor usual quando a URL é
+    versionada.
+
+    O prazo vale só para o blueprint deste pacote; a configuração
+    ``SEND_FILE_MAX_AGE_DEFAULT`` do app não é alterada, porque os estáticos do
+    consumidor não são assunto desta biblioteca.
     """
     from flask import Blueprint  # local: o Django não instala Flask
 
     registrar_icone_jinja(app)
+    app.jinja_env.globals.setdefault("sharedauth_asset", url_do_asset)
 
     if app.extensions.get(_MARCA_REGISTRO):
         return
     app.extensions[_MARCA_REGISTRO] = True
 
+    class _BlueprintDeAssets(Blueprint):
+        """Blueprint que decide o próprio ``max_age``.
+
+        Definida aqui dentro porque herdar de ``Blueprint`` exige o Flask
+        importado, e o módulo precisa continuar importável sem ele -- é a
+        mesma razão de o ``import`` acima ser local.
+        """
+
+        def get_send_file_max_age(self, filename: str | None) -> int | None:
+            if max_age_segundos is not None:
+                return max_age_segundos
+            return super().get_send_file_max_age(filename)
+
     # Nome diferente do blueprint de `messages` (que se chama `sharedauth`):
     # dois blueprints com o mesmo nome no mesmo app é erro em tempo de
     # registro.
     app.register_blueprint(
-        Blueprint(
+        _BlueprintDeAssets(
             "sharedauth_ui",
             __name__,
             static_folder="estatico",
@@ -148,7 +221,9 @@ __all__ = [
     "CAMINHO_ESTATICO",
     "SEVERIDADES",
     "TRACOS_ICONE",
+    "UM_ANO_EM_SEGUNDOS",
     "registrar_icone_jinja",
     "registrar_ui",
     "svg_icone",
+    "url_do_asset",
 ]

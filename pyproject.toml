@@ -1,6 +1,6 @@
 [project]
 name = "sharedauth"
-version = "0.12.0"
+version = "0.13.0"
 description = "Contratos compartilhados de autenticação, segurança, formatação e interface"
 # Piso elevado a 3.14 em 07/09/2026 (achado L03 do LEVANTAMENTO_2026-09.md).
 # A politica da casa e alargar o teto e preservar o piso, e ela continua

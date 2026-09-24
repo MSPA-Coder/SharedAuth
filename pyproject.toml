@@ -27,9 +27,26 @@ flask = [
 dev = [
     "sharedauth[flask]",
     "pytest>=8.3,<10",
+    # Lint na CI, como nos repositorios irmaos. Faltava aqui: um import
+    # duplicado e mal indentado em `tests/test_access.py` passou meses sem
+    # ninguem ver.
+    "ruff>=0.12,<1",
     # Auditoria de CVE das dependências instaladas. Piso na minor atual, teto
     # na próxima major — política de faixa do mantenedor.
     "pip-audit>=2.10,<3",
+]
+
+[tool.pytest.ini_options]
+markers = [
+  # Le JS ou CSS porque nenhum teste executa o navegador; confere so o que
+  # define o mecanismo (docs/TESTES.md, T6).
+  "sentinela_front: guarda textual de um mecanismo de front-end critico",
+]
+filterwarnings = [
+  # A suite do limiter usa o armazenamento em memoria de proposito: cada teste
+  # monta o seu app. O aviso do Flask-Limiter serve a producao, onde os
+  # consumidores passam `storage_uri`; aqui ele so esconde avisos que importam.
+  "ignore:Using the in-memory storage for tracking rate limits:UserWarning",
 ]
 
 [build-system]
@@ -54,4 +71,19 @@ sharedauth = [
   # eles a instalacao traz um modulo Python que nao serve para nada.
   "ui/estatico/*.css",
   "ui/estatico/*.js",
+]
+
+# Regras fixadas, como nos repositorios irmaos: sem `select`, cada versao nova
+# do Ruff muda o que e conferido (a 0.16 passou a ligar regras que a 0.15 nao
+# ligava), e a CI ficaria vermelha ou verde por causa da versao, nao do codigo.
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # Pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
 ]

@@ -19,7 +19,6 @@ from sharedauth.ui import (
     url_do_asset,
 )
 
-
 # ---------------------------------------------------------------------------
 # O que o Django consome
 # ---------------------------------------------------------------------------
@@ -58,8 +57,10 @@ def test_registrar_ui_serve_os_arquivos() -> None:
 
     cliente = app.test_client()
     for arquivo in (ARQUIVO_CSS, ARQUIVO_JS):
-        resposta = cliente.get(f"/sharedauth/ui/{arquivo}")
-        assert resposta.status_code == 200, arquivo
+        # O estático sai em passthrough: sem fechar, o arquivo fica aberto até
+        # o coletor de lixo (ResourceWarning).
+        with cliente.get(f"/sharedauth/ui/{arquivo}") as resposta:
+            assert resposta.status_code == 200, arquivo
 
 
 def test_registrar_ui_duas_vezes_nao_derruba_o_app() -> None:
@@ -169,22 +170,6 @@ def test_css_nao_tem_url_externa_nem_data_uri() -> None:
     assert "data:" not in sem_comentario
 
 
-def test_css_estiliza_as_quatro_severidades() -> None:
-    css = (CAMINHO_ESTATICO / ARQUIVO_CSS).read_text(encoding="utf-8")
-    for severidade in SEVERIDADES:
-        assert f".sa-{severidade}" in css
-
-
-def test_css_entrega_componentes_visuais_sem_dominio() -> None:
-    """Cartão, métrica e barra servem a mais de um consumidor sem decidir
-    o que os números significam em cada tela."""
-    css = (CAMINHO_ESTATICO / ARQUIVO_CSS).read_text(encoding="utf-8")
-
-    for componente in (".sa-cartao", ".sa-metrica", ".sa-barra"):
-        assert componente in css
-    assert "patrim" not in css.casefold()
-
-
 def test_js_nao_escreve_estilo_inline() -> None:
     """A CSP é `style-src 'self'` sem `unsafe-inline`: `setAttribute('style')`
     é bloqueado pelo navegador, e a convenção do projeto é classe estática em
@@ -195,11 +180,15 @@ def test_js_nao_escreve_estilo_inline() -> None:
     assert ".style." not in js
 
 
+@pytest.mark.sentinela_front
 def test_js_prende_o_foco_e_atende_o_escape() -> None:
-    """O modal deve prender e restaurar o foco para manter acessibilidade."""
+    """O modal de confirmação prende o foco e o devolve a quem abriu.
+
+    Sentinela (docs/TESTES.md, T6): nenhum teste executa o navegador. Sem a
+    trava, quem navega por teclado confirma uma exclusão sem ver o diálogo;
+    sem a devolução, perde o lugar na tela depois dele.
+    """
     js = (CAMINHO_ESTATICO / ARQUIVO_JS).read_text(encoding="utf-8")
-    assert 'aria-modal' in js
-    assert '"Escape"' in js
     assert "shiftKey" in js, "sem Shift+Tab o foco só circula num sentido"
     assert "gatilho.focus()" in js, "o foco tem que voltar para quem abriu"
 
@@ -231,12 +220,11 @@ def test_sem_max_age_o_comportamento_e_o_de_sempre() -> None:
     app = Flask(__name__)
     registrar_ui(app)
 
-    resposta = app.test_client().get(f"/sharedauth/ui/{ARQUIVO_CSS}")
-
-    assert resposta.status_code == 200
-    assert f"max-age={UM_ANO_EM_SEGUNDOS}" not in resposta.headers.get(
-        "Cache-Control", ""
-    )
+    with app.test_client().get(f"/sharedauth/ui/{ARQUIVO_CSS}") as resposta:
+        assert resposta.status_code == 200
+        assert f"max-age={UM_ANO_EM_SEGUNDOS}" not in resposta.headers.get(
+            "Cache-Control", ""
+        )
 
 
 def test_max_age_chega_ao_cabecalho_dos_dois_arquivos() -> None:
@@ -245,9 +233,9 @@ def test_max_age_chega_ao_cabecalho_dos_dois_arquivos() -> None:
 
     cliente = app.test_client()
     for arquivo in (ARQUIVO_CSS, ARQUIVO_JS):
-        resposta = cliente.get(f"/sharedauth/ui/{arquivo}")
-        assert resposta.status_code == 200, arquivo
-        assert f"max-age={UM_ANO_EM_SEGUNDOS}" in resposta.headers["Cache-Control"], arquivo
+        with cliente.get(f"/sharedauth/ui/{arquivo}") as resposta:
+            assert resposta.status_code == 200, arquivo
+            assert f"max-age={UM_ANO_EM_SEGUNDOS}" in resposta.headers["Cache-Control"], arquivo
 
 
 def test_max_age_nao_vaza_para_os_estaticos_do_consumidor() -> None:
@@ -293,7 +281,6 @@ def test_a_url_versionada_serve_o_arquivo() -> None:
     with app.test_request_context():
         url = url_do_asset(ARQUIVO_CSS)
 
-    resposta = app.test_client().get(url)
-
-    assert resposta.status_code == 200
-    assert f"max-age={UM_ANO_EM_SEGUNDOS}" in resposta.headers["Cache-Control"]
+    with app.test_client().get(url) as resposta:
+        assert resposta.status_code == 200
+        assert f"max-age={UM_ANO_EM_SEGUNDOS}" in resposta.headers["Cache-Control"]

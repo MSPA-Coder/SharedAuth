@@ -4,7 +4,6 @@ import pytest
 
 from sharedauth.config import FlagInvalidaError, ler_flag, montar_url_postgres
 
-
 # --------------------------------------------------------------------------
 # ler_flag
 # --------------------------------------------------------------------------

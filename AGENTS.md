@@ -125,6 +125,9 @@ navegador, expiração de sessão e uma ação protegida por CSRF/confirmação.
   ponto de consumo e cobertas por teste.
 - Toda alteração pública deve ter caminho feliz e caso de recusa ou falha.
 - Não grave tokens, credenciais ou strings de conexão no repositório.
+- O que merece teste e em que forma está em `docs/TESTES.md`, comum aos
+  repositórios. Diante de vermelho, decida de quem é o defeito antes de mexer;
+  nunca escreva código para o teste passar.
 
 ## Validação
 

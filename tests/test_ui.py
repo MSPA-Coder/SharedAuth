@@ -19,7 +19,6 @@ from sharedauth.ui import (
     url_do_asset,
 )
 
-
 # ---------------------------------------------------------------------------
 # O que o Django consome
 # ---------------------------------------------------------------------------
@@ -58,8 +57,10 @@ def test_registrar_ui_serve_os_arquivos() -> None:
 
     cliente = app.test_client()
     for arquivo in (ARQUIVO_CSS, ARQUIVO_JS):
-        resposta = cliente.get(f"/sharedauth/ui/{arquivo}")
-        assert resposta.status_code == 200, arquivo
+        # O estático sai em passthrough: sem fechar, o arquivo fica aberto até
+        # o coletor de lixo (ResourceWarning).
+        with cliente.get(f"/sharedauth/ui/{arquivo}") as resposta:
+            assert resposta.status_code == 200, arquivo
 
 
 def test_registrar_ui_duas_vezes_nao_derruba_o_app() -> None:
@@ -219,12 +220,11 @@ def test_sem_max_age_o_comportamento_e_o_de_sempre() -> None:
     app = Flask(__name__)
     registrar_ui(app)
 
-    resposta = app.test_client().get(f"/sharedauth/ui/{ARQUIVO_CSS}")
-
-    assert resposta.status_code == 200
-    assert f"max-age={UM_ANO_EM_SEGUNDOS}" not in resposta.headers.get(
-        "Cache-Control", ""
-    )
+    with app.test_client().get(f"/sharedauth/ui/{ARQUIVO_CSS}") as resposta:
+        assert resposta.status_code == 200
+        assert f"max-age={UM_ANO_EM_SEGUNDOS}" not in resposta.headers.get(
+            "Cache-Control", ""
+        )
 
 
 def test_max_age_chega_ao_cabecalho_dos_dois_arquivos() -> None:
@@ -233,9 +233,9 @@ def test_max_age_chega_ao_cabecalho_dos_dois_arquivos() -> None:
 
     cliente = app.test_client()
     for arquivo in (ARQUIVO_CSS, ARQUIVO_JS):
-        resposta = cliente.get(f"/sharedauth/ui/{arquivo}")
-        assert resposta.status_code == 200, arquivo
-        assert f"max-age={UM_ANO_EM_SEGUNDOS}" in resposta.headers["Cache-Control"], arquivo
+        with cliente.get(f"/sharedauth/ui/{arquivo}") as resposta:
+            assert resposta.status_code == 200, arquivo
+            assert f"max-age={UM_ANO_EM_SEGUNDOS}" in resposta.headers["Cache-Control"], arquivo
 
 
 def test_max_age_nao_vaza_para_os_estaticos_do_consumidor() -> None:
@@ -281,7 +281,6 @@ def test_a_url_versionada_serve_o_arquivo() -> None:
     with app.test_request_context():
         url = url_do_asset(ARQUIVO_CSS)
 
-    resposta = app.test_client().get(url)
-
-    assert resposta.status_code == 200
-    assert f"max-age={UM_ANO_EM_SEGUNDOS}" in resposta.headers["Cache-Control"]
+    with app.test_client().get(url) as resposta:
+        assert resposta.status_code == 200
+        assert f"max-age={UM_ANO_EM_SEGUNDOS}" in resposta.headers["Cache-Control"]

@@ -44,6 +44,7 @@ jobs:
           # nao prova nada.
           python-version: "3.14"
       - run: python -m pip install -e ".[dev]"
+      - run: python -m ruff check .
       - run: python -m pytest -q
 
       # O Dependabot abre PR quando sai versão nova. Isso não é a mesma

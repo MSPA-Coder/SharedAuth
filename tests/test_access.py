@@ -90,13 +90,6 @@ def test_chave_do_erro_json_e_configuravel() -> None:
     def api_dado():
         return {"ok": True}
 
-    from sharedauth.access import (
-    requer_login,
-    requer_papel,
-    requer_troca_de_senha,
-    url_proximo_seguro,
-)
-
     requer_login(
         app,
         endpoints_publicos=frozenset({"static"}),

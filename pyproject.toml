@@ -32,6 +32,13 @@ dev = [
     "pip-audit>=2.10,<3",
 ]
 
+[tool.pytest.ini_options]
+markers = [
+  # Le JS ou CSS porque nenhum teste executa o navegador; confere so o que
+  # define o mecanismo (docs/TESTES.md, T6).
+  "sentinela_front: guarda textual de um mecanismo de front-end critico",
+]
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"

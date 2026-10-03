@@ -3,14 +3,15 @@
 #
 # Mesma forma dos irmãos, menos o ecossistema `docker`: aqui não há imagem.
 #
-# `versioning-strategy: widen` é a política do mantenedor — alargar o teto e
-# manter o piso. Numa biblioteca isso importa mais que nos aplicativos: um
+# `versioning-strategy: increase-if-necessary` segue a política do mantenedor:
+# manter o piso e só mexer na faixa quando indispensável (o GitHub não aceita
+# `widen`). Numa biblioteca isso importa mais que nos aplicativos: um
 # piso alto demais aqui obriga todos os consumidores a subir junto.
 version: 2
 updates:
   - package-ecosystem: pip
     directory: "/"
-    versioning-strategy: widen
+    versioning-strategy: increase-if-necessary
     schedule:
       interval: weekly
       timezone: America/Sao_Paulo

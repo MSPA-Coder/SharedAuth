@@ -351,9 +351,8 @@
       ev.preventDefault();
       ev.stopPropagation();
 
-      // O formulário já saiu (ver ENVIO ÚNICO abaixo): não pergunta de novo.
-      var jaEnviado = formularioDe(alvo);
-      if (jaEnviado && jaEnviado.dataset[ENVIANDO] === "1") return;
+      // Formulário em envio (ver ENVIO ÚNICO abaixo): não pergunta de novo.
+      if (estaTravado(formularioDe(alvo))) return;
 
       confirmar(opcoesDoElemento(alvo)).then(function (ok) {
         if (!ok) return;
@@ -437,57 +436,133 @@
   // -----------------------------------------------------------------------
   // ENVIO ÚNICO (v0.14.0)
   //
-  // Um POST comum leva um tempo até a próxima página chegar, e um segundo
-  // clique nesse intervalo envia o formulário de novo -- num cadastro, o
-  // registro sai em dobro (auditoria de 09/10/2026 do ControleBancario).
-  // Depois que um POST sai DE VERDADE, o formulário fica marcado e todo novo
-  // envio dele é ignorado até a página trocar.
+  // Uma escrita em andamento fica VISÍVEL e não sai duas vezes. Quem clica
+  // de novo num botão de salvar quase sempre clica porque nada indicou que o
+  // primeiro clique funcionou -- e dois envios de um cadastro viram dois
+  // registros (auditoria de 09/10/2026 do ControleBancario).
   //
-  // "Sai de verdade" = nenhum ouvinte segurou o `submit`. A conferência é
-  // feita depois de todos rodarem (`setTimeout`), porque a ordem dos
-  // ouvintes no documento depende da ordem dos scripts: o HTMX e os apps que
-  // enviam por `htmx.ajax` chamam `preventDefault()` e cuidam da própria
-  // requisição, e marcar esses formulários travaria um envio que nunca vai
-  // trocar a página.
+  // Um mecanismo só para os dois caminhos de escrita:
+  //   - POST comum: o `submit` que nenhum ouvinte segurou;
+  //   - HTMX: `htmx:beforeRequest` de verbo que não seja GET, vindo de um
+  //     formulário ou de um elemento dentro dele (inclusive `htmx.ajax` com
+  //     `source: form`).
+  // Os dois levam ao mesmo estado: o formulário com `aria-busy="true"` e os
+  // botões de envio desabilitados com `data-sa-travado` (o CSS mostra o
+  // indicador). Um novo `submit` de formulário travado é descartado na fase
+  // de captura, antes do HTMX e de qualquer ouvinte do app.
   //
-  // A marca cai sozinha quando a página volta do cache do navegador
-  // (`pageshow` com `persisted`) e depois de 15 segundos -- se a resposta
-  // for um download ou a navegação não acontecer, um formulário travado
-  // para sempre seria pior que o defeito.
+  // A liberação vem de um EVENTO, nunca de um relógio:
+  //   - HTMX: `htmx:afterRequest`, com sucesso ou erro -- formulário com erro
+  //     de validação volta a ser editável;
+  //   - POST comum: a página troca; se voltar pelo cache do navegador,
+  //     `pageshow` destrava;
+  //   - formulário que NÃO troca de página (um download, por exemplo)
+  //     declara `data-sa-envio-livre` e não é travado.
+  // Quem envia por conta própria fora desses caminhos usa
+  // `window.sharedauth.travarEnvio(form)` / `liberarEnvio(form)`.
+  //
+  // Isto reduz o envio duplo; a GARANTIA mora no servidor (ver README:
+  // restrição única ou token de uso único).
   // -----------------------------------------------------------------------
-  var ENVIANDO = "saEnviando";
-  var DESTRAVA_MS = 15000;
+  var TRAVADO = "data-sa-travado";
 
-  function ehPost(form) {
-    return !!form && (form.getAttribute("method") || "").toLowerCase() === "post";
+  function formularioDoElemento(el) {
+    if (!el || !el.tagName) return null;
+    if (el.tagName === "FORM") return el;
+    return el.form || (el.closest ? el.closest("form") : null);
   }
 
+  function botoesDeEnvio(form) {
+    var botoes = Array.prototype.slice.call(
+      form.querySelectorAll('button:not([type]), button[type="submit"], input[type="submit"]')
+    );
+    if (form.id) {
+      botoes = botoes.concat(Array.prototype.slice.call(
+        document.querySelectorAll('[type="submit"][form="' + form.id + '"]')
+      ));
+    }
+    return botoes;
+  }
+
+  function estaTravado(form) {
+    return !!form && form.getAttribute("aria-busy") === "true" && form.hasAttribute(TRAVADO);
+  }
+
+  // `form` é um formulário; fora de formulário (um botão com `hx-post`), é o
+  // próprio elemento que dispara a escrita, e ele é que fica travado.
+  function travarEnvio(form) {
+    if (!form || form.hasAttribute("data-sa-envio-livre") || estaTravado(form)) return;
+    form.setAttribute("aria-busy", "true");
+    form.setAttribute(TRAVADO, "");
+    if (form.tagName !== "FORM") {
+      form.disabled = true;
+      return;
+    }
+    botoesDeEnvio(form).forEach(function (botao) {
+      if (botao.disabled) return; // já estava desabilitado por regra do app
+      botao.disabled = true;
+      botao.setAttribute(TRAVADO, "");
+    });
+  }
+
+  function liberarEnvio(form) {
+    if (!form || !form.hasAttribute(TRAVADO)) return;
+    form.removeAttribute("aria-busy");
+    form.removeAttribute(TRAVADO);
+    if (form.tagName !== "FORM") {
+      form.disabled = false;
+      return;
+    }
+    botoesDeEnvio(form).forEach(function (botao) {
+      if (!botao.hasAttribute(TRAVADO)) return;
+      botao.disabled = false;
+      botao.removeAttribute(TRAVADO);
+    });
+  }
+
+  function ehEscrita(form) {
+    return !!form && (form.getAttribute("method") || "get").toLowerCase() !== "get";
+  }
+
+  // Reenvio de formulário travado: descartado antes de qualquer outro ouvinte.
   document.addEventListener("submit", function (ev) {
-    if (ehPost(ev.target) && ev.target.dataset[ENVIANDO] === "1") {
+    if (estaTravado(ev.target)) {
       ev.preventDefault();
       ev.stopImmediatePropagation();
     }
   }, true);
 
+  // POST comum que saiu de verdade. A conferência espera todos os ouvintes
+  // rodarem: quem trata o envio sozinho (o HTMX, um app com `htmx.ajax`)
+  // chama `preventDefault()` e trava pelo caminho do HTMX abaixo.
   document.addEventListener("submit", function (ev) {
     var form = ev.target;
-    if (!ehPost(form)) return;
+    if (!ehEscrita(form)) return;
     window.setTimeout(function () {
-      if (ev.defaultPrevented) return;
-      form.dataset[ENVIANDO] = "1";
-      window.setTimeout(function () { delete form.dataset[ENVIANDO]; }, DESTRAVA_MS);
+      if (!ev.defaultPrevented) travarEnvio(form);
     }, 0);
+  });
+
+  document.addEventListener("htmx:beforeRequest", function (ev) {
+    var config = (ev.detail && ev.detail.requestConfig) || {};
+    if ((config.verb || "get").toLowerCase() === "get") return;
+    travarEnvio(formularioDoElemento(ev.detail.elt) || ev.detail.elt);
+  });
+
+  document.addEventListener("htmx:afterRequest", function (ev) {
+    var elt = ev.detail && ev.detail.elt;
+    liberarEnvio(formularioDoElemento(elt) || elt);
   });
 
   window.addEventListener("pageshow", function (ev) {
     if (!ev.persisted) return;
-    document.querySelectorAll("form[data-sa-enviando]").forEach(function (form) {
-      delete form.dataset[ENVIANDO];
-    });
+    document.querySelectorAll("form[" + TRAVADO + "], [" + TRAVADO + "][aria-busy]").forEach(liberarEnvio);
   });
 
   window.sharedauth = window.sharedauth || {};
   window.sharedauth.confirmar = confirmar;
   window.sharedauth.avisar = avisar;
+  window.sharedauth.travarEnvio = travarEnvio;
+  window.sharedauth.liberarEnvio = liberarEnvio;
   window.sharedauth.SEVERIDADES = SEVERIDADES.slice();
 })();

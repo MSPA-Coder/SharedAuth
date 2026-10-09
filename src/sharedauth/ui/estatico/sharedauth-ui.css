@@ -293,3 +293,33 @@
     max-width: none;
   }
 }
+
+/* Envio único (v0.14.0): o botão de uma escrita em andamento mostra que está
+   trabalhando e não aceita outro clique. Quem marca é sharedauth-ui.js
+   (`data-sa-travado`); o estado acessível é `aria-busy` no formulário. */
+[data-sa-travado]:is(button, input) {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+button[data-sa-travado]::after {
+  content: "";
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  margin-left: 0.45em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  vertical-align: -0.1em;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  button[data-sa-travado]::after {
+    animation: sa-girar 700ms linear infinite;
+  }
+}
+
+@keyframes sa-girar {
+  to { transform: rotate(360deg); }
+}

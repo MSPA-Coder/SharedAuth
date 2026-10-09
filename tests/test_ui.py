@@ -284,3 +284,23 @@ def test_a_url_versionada_serve_o_arquivo() -> None:
     with app.test_client().get(url) as resposta:
         assert resposta.status_code == 200
         assert f"max-age={UM_ANO_EM_SEGUNDOS}" in resposta.headers["Cache-Control"]
+
+
+def test_post_ja_enviado_nao_sai_de_novo() -> None:
+    """Sentinela do envio único (v0.14.0) -- nenhum teste daqui roda o navegador.
+
+    Dois cliques num POST comum criavam o registro em dobro (auditoria de
+    09/10/2026 do ControleBancario). O JS precisa: barrar o reenvio na fase de
+    captura, marcar só o envio que ninguém segurou (conferido depois de todos
+    os ouvintes, senão trava formulário tratado pelo HTMX) e destravar sozinho.
+    """
+    js = (CAMINHO_ESTATICO / ARQUIVO_JS).read_text(encoding="utf-8")
+    trecho = js[js.index("ENVIO ÚNICO"):]
+
+    barreira = re.search(r'addEventListener\("submit",[\s\S]*?\}, true\);', trecho)
+    assert barreira, "sem barreira na captura"
+    assert "ev.defaultPrevented" in trecho and "setTimeout" in trecho, (
+        "marca sem conferir quem tratou o envio"
+    )
+    assert '"pageshow"' in trecho, "volta do cache do navegador ficaria travada"
+    assert "DESTRAVA_MS" in trecho, "sem destrave por tempo"

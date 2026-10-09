@@ -351,6 +351,10 @@
       ev.preventDefault();
       ev.stopPropagation();
 
+      // O formulário já saiu (ver ENVIO ÚNICO abaixo): não pergunta de novo.
+      var jaEnviado = formularioDe(alvo);
+      if (jaEnviado && jaEnviado.dataset[ENVIANDO] === "1") return;
+
       confirmar(opcoesDoElemento(alvo)).then(function (ok) {
         if (!ok) return;
         var form = formularioDe(alvo);
@@ -429,6 +433,58 @@
 
   document.addEventListener("DOMContentLoaded", function () { lerAvisosDoServidor(document); });
   document.addEventListener("htmx:afterSwap", function (ev) { lerAvisosDoServidor(ev.target); });
+
+  // -----------------------------------------------------------------------
+  // ENVIO ÚNICO (v0.14.0)
+  //
+  // Um POST comum leva um tempo até a próxima página chegar, e um segundo
+  // clique nesse intervalo envia o formulário de novo -- num cadastro, o
+  // registro sai em dobro (auditoria de 09/10/2026 do ControleBancario).
+  // Depois que um POST sai DE VERDADE, o formulário fica marcado e todo novo
+  // envio dele é ignorado até a página trocar.
+  //
+  // "Sai de verdade" = nenhum ouvinte segurou o `submit`. A conferência é
+  // feita depois de todos rodarem (`setTimeout`), porque a ordem dos
+  // ouvintes no documento depende da ordem dos scripts: o HTMX e os apps que
+  // enviam por `htmx.ajax` chamam `preventDefault()` e cuidam da própria
+  // requisição, e marcar esses formulários travaria um envio que nunca vai
+  // trocar a página.
+  //
+  // A marca cai sozinha quando a página volta do cache do navegador
+  // (`pageshow` com `persisted`) e depois de 15 segundos -- se a resposta
+  // for um download ou a navegação não acontecer, um formulário travado
+  // para sempre seria pior que o defeito.
+  // -----------------------------------------------------------------------
+  var ENVIANDO = "saEnviando";
+  var DESTRAVA_MS = 15000;
+
+  function ehPost(form) {
+    return !!form && (form.getAttribute("method") || "").toLowerCase() === "post";
+  }
+
+  document.addEventListener("submit", function (ev) {
+    if (ehPost(ev.target) && ev.target.dataset[ENVIANDO] === "1") {
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+    }
+  }, true);
+
+  document.addEventListener("submit", function (ev) {
+    var form = ev.target;
+    if (!ehPost(form)) return;
+    window.setTimeout(function () {
+      if (ev.defaultPrevented) return;
+      form.dataset[ENVIANDO] = "1";
+      window.setTimeout(function () { delete form.dataset[ENVIANDO]; }, DESTRAVA_MS);
+    }, 0);
+  });
+
+  window.addEventListener("pageshow", function (ev) {
+    if (!ev.persisted) return;
+    document.querySelectorAll("form[data-sa-enviando]").forEach(function (form) {
+      delete form.dataset[ENVIANDO];
+    });
+  });
 
   window.sharedauth = window.sharedauth || {};
   window.sharedauth.confirmar = confirmar;

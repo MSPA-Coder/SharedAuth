@@ -142,7 +142,8 @@ público ou de comportamento compartilhado exige nova versão/tag e validação 
 cada consumidor que adotar a atualização. Mudança incompatível de assinatura
 ou semântica requer incremento de versão compatível com esse impacto; os
 aplicativos podem atualizar em momentos diferentes porque suas dependências
-continuam fixadas em tags.
+continuam fixadas em tags. O que cada versão traz está nas
+[releases](https://github.com/MSPA-Coder/SharedAuth/releases).
 
 Além da suíte desta biblioteca, a adoção deve validar no consumidor ao menos o
 build, os testes, o login real, a expiração da sessão e uma ação protegida por

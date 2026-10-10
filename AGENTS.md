@@ -111,6 +111,12 @@ incompatíveis de assinatura ou semântica devem incrementar a versão de acordo
 com o impacto. A adoção não é implícita nem simultânea: cada app mantém sua tag
 fixada até concluir seus próprios testes e deploy.
 
+A tag nasce depois do merge, sobre o commit de squash, e ganha na mesma hora
+uma release no GitHub com o que entra e o que muda na adoção
+(`gh release create vX.Y.Z --verify-tag --notes-file notas.md`). A página de
+releases é o changelog: sem ela, o "Latest" do GitHub ficou na v0.1.1 enquanto
+os consumidores já estavam na v0.14.0.
+
 Antes da atualização de um consumidor, valide o contrato afetado no contexto
 real. Para autenticação e segurança, isso inclui build/testes, login no
 navegador, expiração de sessão e uma ação protegida por CSRF/confirmação.

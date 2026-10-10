@@ -36,19 +36,19 @@ Permanecem nos consumidores:
 
 ## Instalação e fronteira de dependências
 
-A versão atual é `0.13.0`. Os consumidores instalam diretamente da tag Git,
+A versão atual é `0.14.0`. Os consumidores instalam diretamente da tag Git,
 sem acompanhar branch ou usar instalação editável.
 
 Aplicativo que usa somente o núcleo:
 
 ```text
-sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.13.0
+sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.14.0
 ```
 
 Aplicativo Flask:
 
 ```text
-sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.13.0
+sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.14.0
 ```
 
 O pacote-base não declara dependências. Estes módulos podem ser importados
@@ -96,6 +96,31 @@ longo sem versão na URL prende o navegador no arquivo antigo depois que o
 consumidor atualiza a tag. Já `messages`, `health`, `access`, `session`,
 `csrf` e `ratelimit` exigem o extra `[flask]`; `passwords` exige apenas para
 as duas funções de hash.
+
+### Envio único (v0.14.0)
+
+`sharedauth-ui.js` impede que uma escrita saia duas vezes e mostra que ela está
+em andamento. Vale para o POST comum e para o HTMX (qualquer verbo que não
+seja GET, inclusive `htmx.ajax` com `source: form`): o formulário recebe
+`aria-busy="true"` e os botões de envio ficam desabilitados com
+`data-sa-travado` (o CSS mostra o indicador). Um novo envio do mesmo
+formulário é descartado. A liberação vem de evento: `htmx:afterRequest` (com
+sucesso ou erro), a troca de página no POST comum, ou `pageshow` na volta pelo
+cache do navegador.
+
+- Formulário que **não troca de página** (download) declara
+  `data-sa-envio-livre`.
+- Quem envia por um caminho próprio usa `window.sharedauth.travarEnvio(form)`
+  e `liberarEnvio(form)`.
+
+Isso reduz o envio duplo; **a garantia é do servidor**, e o padrão da frota é:
+
+- **há chave natural** (o mesmo provento não existe duas vezes): restrição
+  única no banco e o `IntegrityError` tratado como "já cadastrado" -- nunca
+  erro 500;
+- **não há chave natural** (dois lançamentos iguais podem ser legítimos):
+  token de uso único gerado na renderização do formulário e gravado numa
+  tabela com restrição única, na mesma transação da criação.
 
 ## Rate limit e topologia
 

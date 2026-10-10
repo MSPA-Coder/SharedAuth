@@ -284,3 +284,27 @@ def test_a_url_versionada_serve_o_arquivo() -> None:
     with app.test_client().get(url) as resposta:
         assert resposta.status_code == 200
         assert f"max-age={UM_ANO_EM_SEGUNDOS}" in resposta.headers["Cache-Control"]
+
+
+def test_envio_unico_e_um_mecanismo_so_liberado_por_evento() -> None:
+    """Sentinela do envio único (v0.14.0) -- nenhum teste daqui roda o navegador.
+
+    Dois cliques numa escrita criavam o registro em dobro (auditoria de
+    09/10/2026 do ControleBancario). O componente trava a escrita em
+    andamento de forma visível, pelo POST comum e pelo HTMX, e libera por
+    evento: um relógio de destrave foi recusado como quebra-galho.
+    """
+    js = (CAMINHO_ESTATICO / ARQUIVO_JS).read_text(encoding="utf-8")
+    trecho = js[js.index("ENVIO ÚNICO"):]
+
+    barreira = re.search(r'addEventListener\("submit",[\s\S]*?\}, true\);', trecho)
+    assert barreira and "estaTravado" in barreira.group(0), "sem barreira na captura"
+    for evento in ('"htmx:beforeRequest"', '"htmx:afterRequest"'):
+        assert evento in trecho, f"HTMX fora do mecanismo: {evento}"
+    assert "ev.defaultPrevented" in trecho, "POST comum travado sem conferir quem tratou o envio"
+    assert '"pageshow"' in trecho, "volta do cache do navegador ficaria travada"
+    assert "data-sa-envio-livre" in trecho, "sem opt-out para formulário que não troca de página"
+    assert 'aria-busy' in trecho, "estado de envio invisível para leitor de tela"
+    assert "window.sharedauth.travarEnvio" in js and "window.sharedauth.liberarEnvio" in js
+    # liberação por evento, nunca por tempo
+    assert not re.search(r"setTimeout\([^)]*liberarEnvio", js)

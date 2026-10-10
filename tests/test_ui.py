@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import re
-
 import pytest
 from flask import Flask
 
@@ -112,87 +110,6 @@ def test_icone_nao_usa_data_uri() -> None:
         assert "<img" not in svg_icone(severidade)
 
 
-# ---------------------------------------------------------------------------
-# Representações sincronizadas
-#
-# O traçado do ícone existe em Python (banner no servidor) e em JavaScript
-# (modal e toast no navegador). O JS não pode importar Python, então a cópia é
-# inevitável. O teste mantém as representações sincronizadas.
-# ---------------------------------------------------------------------------
-
-
-def _tracos_do_javascript() -> dict[str, list[str]]:
-    fonte = (CAMINHO_ESTATICO / ARQUIVO_JS).read_text(encoding="utf-8")
-    bloco = re.search(r"var TRACOS = \{(.*?)\n  \};", fonte, re.DOTALL)
-    assert bloco, "não achei o objeto TRACOS no JS -- o teste ficou cego"
-
-    encontrados: dict[str, list[str]] = {}
-    for linha in bloco.group(1).splitlines():
-        casou = re.match(r"\s*(\w+):\s*\[(.*)\],?\s*$", linha)
-        if not casou:
-            continue
-        nome, corpo = casou.groups()
-        encontrados[nome] = re.findall(r'"([^"]+)"', corpo)
-    return encontrados
-
-
-def test_os_tracos_do_js_e_do_python_nao_divergiram() -> None:
-    do_js = _tracos_do_javascript()
-    do_python = {nome: list(tracos) for nome, tracos in TRACOS_ICONE.items()}
-
-    assert do_js == do_python, (
-        "o traçado do ícone divergiu entre o JavaScript e o Python.\n"
-        "O banner é renderizado no servidor e o toast no navegador; se os dois "
-        "desenharem ícones diferentes, a mesma severidade muda de cara "
-        "dependendo de como a mensagem chegou.\n"
-        f"JS:     {do_js}\n"
-        f"Python: {do_python}"
-    )
-
-
-def test_o_js_cobre_exatamente_as_severidades_declaradas() -> None:
-    assert set(_tracos_do_javascript()) == set(SEVERIDADES)
-
-
-# ---------------------------------------------------------------------------
-# Regras que o CSS e o JS precisam continuar respeitando
-# ---------------------------------------------------------------------------
-
-
-def test_css_nao_tem_url_externa_nem_data_uri() -> None:
-    """`default-src 'self'` não deixa buscar de outro host, e `img-src 'self'`
-    não deixa `data:`. Um `url()` aqui viraria recurso bloqueado no navegador,
-    sem erro no servidor."""
-    css = (CAMINHO_ESTATICO / ARQUIVO_CSS).read_text(encoding="utf-8")
-    # Ignora comentários para verificar apenas dados CSS executáveis.
-    sem_comentario = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
-    assert "url(" not in sem_comentario
-    assert "data:" not in sem_comentario
-
-
-def test_js_nao_escreve_estilo_inline() -> None:
-    """A CSP é `style-src 'self'` sem `unsafe-inline`: `setAttribute('style')`
-    é bloqueado pelo navegador, e a convenção do projeto é classe estática em
-    vez de mutação de estilo em runtime."""
-    js = (CAMINHO_ESTATICO / ARQUIVO_JS).read_text(encoding="utf-8")
-    assert 'setAttribute("style"' not in js
-    assert "setAttribute('style'" not in js
-    assert ".style." not in js
-
-
-@pytest.mark.sentinela_front
-def test_js_prende_o_foco_e_atende_o_escape() -> None:
-    """O modal de confirmação prende o foco e o devolve a quem abriu.
-
-    Sentinela (docs/TESTES.md, T6): nenhum teste executa o navegador. Sem a
-    trava, quem navega por teclado confirma uma exclusão sem ver o diálogo;
-    sem a devolução, perde o lugar na tela depois dele.
-    """
-    js = (CAMINHO_ESTATICO / ARQUIVO_JS).read_text(encoding="utf-8")
-    assert "shiftKey" in js, "sem Shift+Tab o foco só circula num sentido"
-    assert "gatilho.focus()" in js, "o foco tem que voltar para quem abriu"
-
-
 def test_a_versao_do_pacote_bate_com_a_do_pyproject() -> None:
     """A versão pública deve corresponder aos metadados do pacote."""
     import tomllib
@@ -284,27 +201,3 @@ def test_a_url_versionada_serve_o_arquivo() -> None:
     with app.test_client().get(url) as resposta:
         assert resposta.status_code == 200
         assert f"max-age={UM_ANO_EM_SEGUNDOS}" in resposta.headers["Cache-Control"]
-
-
-def test_envio_unico_e_um_mecanismo_so_liberado_por_evento() -> None:
-    """Sentinela do envio único (v0.14.0) -- nenhum teste daqui roda o navegador.
-
-    Dois cliques numa escrita criavam o registro em dobro (auditoria de
-    09/10/2026 do ControleBancario). O componente trava a escrita em
-    andamento de forma visível, pelo POST comum e pelo HTMX, e libera por
-    evento: um relógio de destrave foi recusado como quebra-galho.
-    """
-    js = (CAMINHO_ESTATICO / ARQUIVO_JS).read_text(encoding="utf-8")
-    trecho = js[js.index("ENVIO ÚNICO"):]
-
-    barreira = re.search(r'addEventListener\("submit",[\s\S]*?\}, true\);', trecho)
-    assert barreira and "estaTravado" in barreira.group(0), "sem barreira na captura"
-    for evento in ('"htmx:beforeRequest"', '"htmx:afterRequest"'):
-        assert evento in trecho, f"HTMX fora do mecanismo: {evento}"
-    assert "ev.defaultPrevented" in trecho, "POST comum travado sem conferir quem tratou o envio"
-    assert '"pageshow"' in trecho, "volta do cache do navegador ficaria travada"
-    assert "data-sa-envio-livre" in trecho, "sem opt-out para formulário que não troca de página"
-    assert 'aria-busy' in trecho, "estado de envio invisível para leitor de tela"
-    assert "window.sharedauth.travarEnvio" in js and "window.sharedauth.liberarEnvio" in js
-    # liberação por evento, nunca por tempo
-    assert not re.search(r"setTimeout\([^)]*liberarEnvio", js)

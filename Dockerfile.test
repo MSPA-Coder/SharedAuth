@@ -9,7 +9,7 @@ WORKDIR /workspace
 RUN apt-get update \
     && apt-get upgrade -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
-    && python -m pip install --no-cache-dir --upgrade pip uv
+    && python -m pip install --no-cache-dir --upgrade pip uv setuptools msgpack urllib3
 
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src

@@ -1,0 +1,45 @@
+name: sharedauth
+
+services:
+  quality:
+    image: sharedauth-quality:local
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      pull: true
+    profiles: [quality]
+    pull_policy: never
+    command: ["sh", "-ec", "ruff check . && pytest -q -p no:cacheprovider"]
+    network_mode: none
+    user: "65532:65532"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: "2.0"
+    environment:
+      HOME: /tmp
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      RUFF_CACHE_DIR: /tmp/ruff-cache
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,mode=1777,size=128m
+
+  audit:
+    image: sharedauth-quality:local
+    profiles: [quality]
+    pull_policy: never
+    command: ["pip-audit", "--progress-spinner=off", "--cache-dir", "/tmp/pip-audit-cache"]
+    user: "65532:65532"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: "2.0"
+    environment:
+      HOME: /tmp
+      PIP_CACHE_DIR: /tmp/pip-cache
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,mode=1777,size=128m

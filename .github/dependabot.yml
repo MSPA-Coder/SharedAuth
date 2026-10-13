@@ -1,15 +1,6 @@
-# O SharedAuth é a dependência compartilhada pelos aplicativos: um problema
-# aqui chega em todos eles de uma vez.
-#
-# Mesma forma dos irmãos, menos o ecossistema `docker`: aqui não há imagem.
-#
-# `versioning-strategy: increase-if-necessary` segue a política do mantenedor:
-# manter o piso e só mexer na faixa quando indispensável (o GitHub não aceita
-# `widen`). Numa biblioteca isso importa mais que nos aplicativos: um
-# piso alto demais aqui obriga todos os consumidores a subir junto.
 version: 2
 updates:
-  - package-ecosystem: pip
+  - package-ecosystem: uv
     directory: "/"
     versioning-strategy: increase-if-necessary
     schedule:
@@ -21,14 +12,15 @@ updates:
         applies-to: version-updates
         patterns: ["*"]
         update-types: [minor, patch]
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 3
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
       timezone: America/Sao_Paulo
     open-pull-requests-limit: 3
-    groups:
-      minor-and-patch:
-        applies-to: version-updates
-        patterns: ["*"]
-        update-types: [minor, patch]

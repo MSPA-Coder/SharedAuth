@@ -137,36 +137,18 @@ navegador, expiração de sessão e uma ação protegida por CSRF/confirmação.
 
 ## Validação
 
-O loop normal é o venv do projeto:
+O Compose é a interface oficial para lint, testes e auditoria. Ele constrói a
+imagem com Python 3.15 e instala as versões registradas em `uv.lock`:
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
-.\.venv\Scripts\python.exe -m pytest -q
+docker compose --profile quality build --pull quality
+docker compose --profile quality run --build --rm --no-deps quality
+docker compose --profile quality run --rm --no-deps audit
 ```
 
-O `.venv/` é uma pasta do projeto, já ignorada pelo Git: não altera o Python
-do sistema nem o PATH, e apagar a pasta desfaz a instalação por inteiro. A
-proibição que vale é outra -- nada de instalar dependências do projeto no
-Python global do Windows.
-
-Este repositório não possui Compose nem Dockerfile. Quando a validação em Linux
-importar (antes de publicar uma tag, por exemplo), use a imagem oficial em
-contêiner efêmero, com a fonte montada somente para leitura:
-
-```powershell
-docker run --rm `
-  --mount "type=bind,source=$($PWD.Path),target=/fonte,readonly" `
-  python:3.14-slim `
-  sh -lc "cp -r /fonte /tmp/src && cd /tmp/src && python -m pip install --disable-pip-version-check '.[dev]' && python -m pytest -q -p no:cacheprovider"
-```
-
-A cópia para `/tmp/src` não é enfeite: `pip install` grava metadados de build
-ao lado do `pyproject.toml`, e instalar direto sobre a montagem somente-leitura
-falha com `Cannot update time stamp of directory`. Copiar preserva a garantia
-que a montagem existia para dar -- o contêiner não escreve no repositório -- e
-ainda instala o pacote de verdade, não em modo editável, que é o que os
-aplicativos consumidores recebem.
+A CI reconstrói a imagem sem cache semanalmente e bloqueia PRs com testes,
+auditoria Python ou Trivy reprovados. O `.venv` local não é necessário para
+testar este projeto; não instale ferramentas Python globalmente no Windows.
 
 Se rede, proxy ou CA impedir o download, registre o bloqueio; não improvise uma
 instalação no Python global. Antes de encerrar, execute no host as verificações

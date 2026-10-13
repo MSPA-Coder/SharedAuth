@@ -151,17 +151,14 @@ CSRF/confirmação, conforme o contrato alterado.
 
 ## Validação local sem instalar ferramentas no host
 
-O repositório não possui `compose.yaml` nem `Dockerfile`. Com Docker Desktop
-disponível, execute a suíte em um contêiner efêmero oficial do Python, na mesma
-versão que o `requires-python` exige, montando a fonte somente para leitura:
+O Compose constrói o ambiente Python 3.15 travado em `uv.lock`. Execute lint,
+testes e auditoria sem instalar ferramentas no Windows:
 
 ```powershell
-docker run --rm `
-  --mount "type=bind,source=$($PWD.Path),target=/fonte,readonly" `
-  python:3.14-slim `
-  sh -lc "cp -r /fonte /tmp/src && cd /tmp/src && python -m pip install --disable-pip-version-check '.[dev]' && python -m pytest -q -p no:cacheprovider"
+docker compose --profile quality build --pull quality
+docker compose --profile quality run --build --rm --no-deps quality
+docker compose --profile quality run --rm --no-deps audit
 ```
 
-O `pip` desse comando existe apenas no contêiner. A cópia para `/tmp/src` é
-necessária porque o `pip install` grava metadados ao lado do `pyproject.toml`;
-com ela e o cache do pytest desativado, nada é escrito na árvore de trabalho.
+A CI repete o build sem cache semanalmente e reprova dependências com CVEs
+conhecidas ou achados HIGH/CRITICAL do Trivy.

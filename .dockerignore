@@ -13,3 +13,14 @@ dist
 .env
 .env.*
 !.env.example
+
+# Estado privado e resíduos de validação não são fontes da biblioteca.
+.secrets
+.certs
+.mypy_cache
+.coverage
+.coverage.*
+CodexTemp
+.claude
+.codex
+.agents

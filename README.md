@@ -161,4 +161,7 @@ docker compose --profile quality run --rm --no-deps audit
 ```
 
 A CI repete o build sem cache semanalmente e reprova dependências com CVEs
-conhecidas ou achados HIGH/CRITICAL do Trivy.
+conhecidas ou achados HIGH/CRITICAL do Trivy. Como a CI do PR roda exatamente
+esse contêiner, o `quality` completo não roda mais na máquina antes do PR:
+localmente, rode só os testes focados no que mudou, e o completo apenas para
+reproduzir uma falha da CI.

@@ -147,7 +147,20 @@ docker compose --profile quality run --rm --no-deps audit
 ```
 
 A CI reconstrói a imagem sem cache semanalmente e bloqueia PRs com testes,
-auditoria Python ou Trivy reprovados. O `.venv` local não é necessário para
+auditoria Python ou Trivy reprovados. O `quality` completo não roda mais na
+máquina antes do PR: a CI do PR executa exatamente o mesmo contêiner.
+Localmente, rode só os testes focados no que mudou, e o completo apenas para
+reproduzir uma falha da CI.
+
+O `main` é protegido: toda mudança entra por PR com squash merge, histórico
+linear e os checks obrigatórios verdes. A branch não precisa estar atualizada
+em relação ao `main`; não faça merge do `main` nela só para o PR entrar. O
+auto-merge está ligado: depois de `gh pr create`, rode
+`gh pr merge <n> --auto --squash`, e o PR entra sozinho quando os checks
+passarem. Nunca `--admin`, nunca push forçado, nunca rebase em branch
+publicada.
+
+O `.venv` local não é necessário para
 testar este projeto; não instale ferramentas Python globalmente no Windows.
 
 Se rede, proxy ou CA impedir o download, registre o bloqueio; não improvise uma

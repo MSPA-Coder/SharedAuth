@@ -160,8 +160,8 @@ docker compose --profile quality run --build --rm --no-deps quality
 docker compose --profile quality run --rm --no-deps audit
 ```
 
-A CI repete o build sem cache semanalmente e reprova dependências com CVEs
-conhecidas ou achados HIGH/CRITICAL do Trivy. Como a CI do PR roda exatamente
-esse contêiner, o `quality` completo não roda mais na máquina antes do PR:
-localmente, rode só os testes focados no que mudou, e o completo apenas para
-reproduzir uma falha da CI.
+Rode-os completos antes de cada commit: é essa verificação que vale, e o commit
+vai direto ao `main`, sem PR. A CI roda depois de cada push e repete o build
+sem cache semanalmente, só como aviso; ela reprova dependências com CVEs
+conhecidas ou achados HIGH/CRITICAL do Trivy. Nos PRs do Dependabot, esses
+checks são obrigatórios e o merge é automático.

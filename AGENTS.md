@@ -111,7 +111,7 @@ incompatíveis de assinatura ou semântica devem incrementar a versão de acordo
 com o impacto. A adoção não é implícita nem simultânea: cada app mantém sua tag
 fixada até concluir seus próprios testes e deploy.
 
-A tag nasce depois do merge, sobre o commit de squash, e ganha na mesma hora
+A tag nasce depois do push, sobre o commit no `main`, e ganha na mesma hora
 uma release no GitHub com o que entra e o que muda na adoção
 (`gh release create vX.Y.Z --verify-tag --notes-file notas.md`). A página de
 releases é o changelog: sem ela, o "Latest" do GitHub ficou na v0.1.1 enquanto
@@ -146,21 +146,15 @@ docker compose --profile quality run --build --rm --no-deps quality
 docker compose --profile quality run --rm --no-deps audit
 ```
 
-A CI reconstrói a imagem sem cache semanalmente e bloqueia PRs com testes,
-auditoria Python ou Trivy reprovados. O `quality` completo não roda mais na
-máquina antes do PR: a CI do PR executa exatamente o mesmo contêiner.
-Localmente, rode só os testes focados no que mudou, e o completo apenas para
-reproduzir uma falha da CI.
+Rode os três completos na máquina antes de cada commit: é essa verificação que
+vale. O commit vai direto ao `main`, com `git push`, sem PR e sem esperar nada.
+A regra do `main` continua impedindo apagá-lo ou reescrever o histórico: nada
+de push forçado nem de rebase do `main`.
 
-O `main` é protegido: toda mudança entra por PR com squash merge, histórico
-linear e os checks obrigatórios verdes. A branch não precisa estar atualizada
-em relação ao `main`; não faça merge do `main` nela só para o PR entrar. O
-auto-merge está ligado: depois de `gh pr create`, rode
-`gh pr merge <n> --auto --squash`, e o PR entra sozinho quando os checks
-passarem. Nunca `--admin`, nunca push forçado, nunca rebase em branch
-publicada.
-
-O `.venv` local não é necessário para
+A CI roda depois de cada push e semanalmente (com build sem cache) só como
+aviso e não bloqueia nada; se falhar, investigue. O Dependabot continua por PR,
+com os checks obrigatórios (testes, auditoria Python e Trivy) e auto-merge. O
+`.venv` local não é necessário para
 testar este projeto; não instale ferramentas Python globalmente no Windows.
 
 Se rede, proxy ou CA impedir o download, registre o bloqueio; não improvise uma

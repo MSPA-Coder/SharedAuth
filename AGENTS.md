@@ -153,7 +153,8 @@ de push forçado nem de rebase do `main`.
 
 A CI roda depois de cada push e semanalmente (com build sem cache) só como
 aviso e não bloqueia nada; se falhar, investigue. O Dependabot continua por PR,
-com os checks obrigatórios (testes, auditoria Python e Trivy) e auto-merge. O
+com os checks obrigatórios (testes, auditoria Python e Trivy); o merge é manual
+(o workflow de auto-merge foi removido). O
 `.venv` local não é necessário para
 testar este projeto; não instale ferramentas Python globalmente no Windows.
 

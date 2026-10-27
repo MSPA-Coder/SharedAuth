@@ -9,6 +9,13 @@ O nome `SharedAuth` permanece mesmo com o escopo atual além de autenticação.
 Renomeá-lo agora mudaria imports e dependências dos consumidores sem melhorar
 os contratos oferecidos.
 
+## Ambiente oficial
+
+| Atividade | Ambiente |
+| --- | --- |
+| Lint, testes e auditoria da biblioteca | Docker Compose |
+| `.venv` local | Não é necessária |
+
 ## Escopo e critérios de entrada
 
 Os critérios abaixo orientam o que pertence a este pacote. São um filtro para

@@ -6,7 +6,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.test
-      pull: true
     profiles: [quality]
     pull_policy: never
     command: ["sh", "-ec", "ruff check . && pytest -q -p no:cacheprovider"]

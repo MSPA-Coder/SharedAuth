@@ -18,9 +18,13 @@ COPY tests ./tests
 RUN uv sync --locked --extra dev --no-editable \
     && rm -rf build sharedauth.egg-info
 
-# pip 26.2.1 ainda embute urllib3/msgpack antigos. Atualiza as cópias que o
-# próprio pip usa e sincroniza o BOM embutido, além das distribuições Python
-# globais já atualizadas acima. A auditoria executa `pip` para enumerar pacotes.
+# O pip embute msgpack, urllib3 e certifi e declara as versões no BOM
+# (pip/_vendor/bom.cdx.json), que o Trivy lê. Se um pip novo atrasar uma
+# correção, este passo troca msgpack e urllib3 pelas versões globais
+# atualizadas acima e sincroniza o BOM. O certifi fica de fora: o pip altera a
+# cópia embutida (`files("pip._vendor.certifi")`), então a correção dele vem de
+# atualizar o pip no uv.lock -- foi o caso do GHSA-6q48-6c7w-9gw2 em 03/11/2026
+# (pip 26.2.1 -> 26.3). A auditoria executa `pip` para enumerar pacotes.
 RUN python - <<'PY'
 import importlib.metadata
 import json

@@ -1,144 +1,75 @@
-# Orientações do projeto
+# SharedAuth — guia de trabalho
 
-## Papel e limite arquitetural
+<!-- comum: início. Cópia de _manutencao/compartilhados/AGENTS-comum.md; mude lá e rode sincronizar.py --aplicar. -->
+## Regras comuns aos repositórios
 
-SharedAuth é uma biblioteca interna, estreita e versionada. Ela mantém
-contratos transversais que já são compartilhados por múltiplos aplicativos. A
-intenção é que continue estreita — sem virar um `commons` genérico nem assumir
-responsabilidades das aplicações consumidoras.
+**O que espera o "sim" do mantenedor:** commit e push (quando ele pedir),
+deploy, qualquer ação no VPS, e apagar dados, volumes ou backups
+(`docker compose down -v` inclusive). Na dúvida sobre algo irreversível,
+pergunte; no resto, decida e diga o que decidiu.
 
-O nome `SharedAuth` pode permanecer mesmo cobrindo segurança, formatação e UI.
-Renomear agora imporia mudanças de imports e dependências sem ganho de
-contrato.
+**Ciclo.** Altere, rode a verificação completa deste repositório (seção
+"Validação"), commite direto no `main` e dê `git push`: sem PR, sem push
+forçado, sem rebase do `main` publicado. A CI roda depois, só como aviso, mas
+vermelho no `main` se investiga. O Dependabot chega por PR, com merge manual. O
+deploy é `~/deploy.sh <app>` no VPS1: monta a imagem a partir do `main`,
+confere `/health` e volta sozinho se falhar. O VPS só espelha o `main`; nada se
+edita lá. Imagem-base nova (correção do Debian ou do Python) só quando ele
+pedir: testa na máquina e depois `~/deploy.sh <app> --refresh`. Ao terminar,
+diga o que rodou, o resultado e o que deixou de validar.
 
-O código fica em `src/sharedauth/`, não na raiz. É o layout `src/`: o
-diretório de trabalho nunca coloca o pacote em `sys.path` por acidente, então
-`pytest` só o encontra porque ele está instalado -- e a suíte exercita
-exatamente o que os aplicativos consumidores recebem, arquivos de
-`package-data` inclusive. Com o layout plano anterior, um CSS que ficasse de
-fora do wheel passava despercebido, porque o teste lia o arquivo do
-repositório.
+**Dados e segredos.** Mudança destrutiva ou conversão de dados reais começa por
+backup conferido no BackupRestore. Segredos ficam fora do Git (`.secrets/` ou
+configuração do usuário) e não aparecem em código, imagem, log, diff,
+documento nem relatório.
 
-Em geral, fica fora deste pacote:
+**Dependências.** Alargue o teto e preserve o piso já verificado: elevar o piso
+afirma uma incompatibilidade, e isso exige prova. Vulnerabilidade se corrige
+atualizando; exceção só explícita, com motivo e data. Enquanto o Dependabot não
+aceitar Python 3.15, ele não propõe atualização de `uv` e o grafo do GitHub fica
+parado no lock de 13/10/2026: confira alerta pela versão do `uv.lock`, e
+atualize à mão (`uv lock --upgrade-package <pacote>`) quando o `pip-audit` ou o
+Trivy apontarem.
 
-- atomicidade, transações, modelos, migrations ou persistência de Django e
-  SQLAlchemy;
-- regras de domínio, autorização por papéis ou permissões;
-- modelos de usuário;
-- `SECRET_KEY`, outros segredos ou strings de conexão;
-- decisões operacionais específicas de um consumidor.
+**Testes.** `docs/TESTES.md` diz o que testar e como. Diante de vermelho,
+decida de quem é o defeito; nunca escreva código para um teste passar. Não
+rode duas verificações do mesmo repositório ao mesmo tempo: a segunda recria o
+banco de teste e derruba a primeira.
 
-Para decidir se uma funcionalidade nova entra, estes critérios orientam:
+**Cópias.** Este bloco, `docs/TESTES.md` e os arquivos listados em
+`_manutencao/compartilhados/sincronizar.py` são cópias: mude a canônica lá e
+rode `python compartilhados/sincronizar.py --aplicar` no `_manutencao`.
 
-1. existe necessidade concreta em pelo menos dois consumidores atuais;
-2. o contrato é coeso e testável isoladamente;
-3. o núcleo permanece neutro de framework, ou a integração fica em extra
-   explícito;
-4. não existe dependência de banco de dados nem de domínio.
+**Este arquivo.** Guarde aqui só o que o código não diz: limites, decisões com
+o motivo, armadilhas e comandos. História fica no `git log`; decisão com
+alternativas vira ADR; detalhe de implementação fica no código. Para
+acrescentar uma regra, retire ou funda outra: `sincronizar.py` reprova este
+arquivo acima de 900 palavras fora deste bloco.
+<!-- comum: fim -->
 
-Conveniência futura, uma chamada duplicada em apenas um app ou a tentativa de
-uniformizar regras diferentes costumam não bastar. São orientação, não portão:
-um caso que fuja deles pode entrar, com o motivo registrado na mudança.
+## O pacote
 
-## Fronteira importável sem Flask
+Biblioteca pública, estreita e versionada, com os contratos transversais que
+os aplicativos já compartilham: sessão, CSRF, limite de login, senhas,
+cabeçalhos e CSP, formatação, segredos por arquivo, UI comum e `/health`. Não
+é um `commons` genérico. O nome fica, embora cubra mais que autenticação:
+renomear mudaria imports em todos os consumidores sem ganho de contrato. A
+tabela "Módulos públicos" do `README.md` é a lista de módulos e contratos.
 
-O pacote-base tem `dependencies = []`. Os módulos abaixo precisam continuar
-importáveis sem carregar Flask, Werkzeug, Flask-WTF ou Flask-Limiter:
+Fica fora: transação, modelo, migração ou persistência (Django ou SQLAlchemy);
+regra de domínio, papéis e permissões; modelo de usuário; segredos e strings de
+conexão; decisão operacional de um consumidor só.
 
-- `sharedauth.security`: constantes e montagem de CSP são Python puro; a
-  função de registro recebe o objeto web pronto e não importa Flask em runtime;
-- `sharedauth.formatting`: formatação numérica em Python puro;
-- `sharedauth.config`: leitura de flag de ambiente e montagem da URL do
-  PostgreSQL são `os.environ` e `urllib.parse`, sem driver nem ORM;
-- `sharedauth.secrets`: leitura de segredo por arquivo é `pathlib` e
-  `os.environ`, sem framework;
-- `sharedauth.ui`: caminho dos assets, severidades e SVG são independentes;
-  imports de Flask e MarkupSafe permanecem locais às funções de integração;
-- `sharedauth.logs`: sanitização de texto para log, em Python puro;
-- `sharedauth.passwords`: a política de senha é Python puro; o Werkzeug entra
-  só dentro das funções de hash, na primeira chamada;
-- `sharedauth.session`: a amarra entre sessão e senha é Python puro; o Flask
-  só entra em `configurar_sessao`.
-
-`tests/test_nucleo_sem_flask.py` guarda essa fronteira em um interpretador
-limpo. Tudo que exige Flask/Werkzeug pertence ao extra `[flask]`; um import de
-integração no topo de um desses módulos quebra a fronteira, e o teste reprova.
-
-## Contratos públicos
-
-A lista de módulos e o contrato de cada um estão na tabela "Módulos públicos"
-do `README.md`, mantida num lugar só.
-
-### Sobre o critério "não uniformizar regras diferentes"
-
-Ele continua valendo, e continua recusando a tentativa de forçar dois
-consumidores a se comportarem igual. Mas ele **não** recusa parametrizar uma
-mecânica comum para que cada consumidor declare a sua regra — foi o que
-entrou na v0.4.0 em `config.ler_flag` (`estrito=`) e em
-`ratelimit.iniciar_limiter` (política do consumidor).
-
-A diferença de teste: se a proposta obriga alguém a mudar de comportamento,
-está fora; se ela deixa cada um escrever o comportamento que já tem, num lugar
-só e com teste, está dentro.
-
-Preserve a separação entre módulos. Um módulo novo ou uma reorganização exige
-necessidade concreta nos consumidores e testes do contrato público.
-
-## Rate limit
-
-A biblioteca inicializa o Flask-Limiter e fornece a política padrão de login,
-mas não decide o backend operacional. Storage em memória é por processo e não
-coordena contadores entre workers, contêineres ou hosts; `memory://` não é
-proteção completa de produção.
-
-Nos VPS atuais, o Nginx compartilhado limita também `POST /login`. Se a
-topologia mudar, o consumidor deve configurar storage compartilhado para o
-limiter ou proteção equivalente na borda. Configuração, disponibilidade e
-monitoramento desse backend permanecem no consumidor.
-
-## Versionamento e consumo
-
-Os consumidores fixam a dependência por tag Git; a atual é `v0.14.0`:
-
-```text
-sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.14.0
-sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.14.0
-```
-
-Tags publicadas são imutáveis: nunca reescreva uma tag. Toda mudança pública
-exige nova versão/tag e validação nos consumidores que a adotarem. Mudanças
-incompatíveis de assinatura ou semântica devem incrementar a versão de acordo
-com o impacto. A adoção não é implícita nem simultânea: cada app mantém sua tag
-fixada até concluir seus próprios testes e deploy.
-
-A tag nasce depois do push, sobre o commit no `main`, e ganha na mesma hora
-uma release no GitHub com o que entra e o que muda na adoção
-(`gh release create vX.Y.Z --verify-tag --notes-file notas.md`). A página de
-releases é o changelog: sem ela, o "Latest" do GitHub ficou na v0.1.1 enquanto
-os consumidores já estavam na v0.14.0.
-
-Antes da atualização de um consumidor, valide o contrato afetado no contexto
-real. Para autenticação e segurança, isso inclui build/testes, login no
-navegador, expiração de sessão e uma ação protegida por CSRF/confirmação.
-
-## Prática de mudança
-
-- Leia `AGENTS.md`, `README.md`, `pyproject.toml`, os módulos e os testes
-  relacionados antes de editar.
-- Preserve mudanças locais não relacionadas.
-- Dependência nova precisa ter a compatibilidade confirmada nos consumidores.
-- Mantenha defaults de segurança fechados; exceções precisam ser explícitas no
-  ponto de consumo e cobertas por teste.
-- Toda alteração pública deve ter caminho feliz e caso de recusa ou falha.
-- Não grave tokens, credenciais ou strings de conexão no repositório.
-- O que merece teste e em que forma está em `docs/TESTES.md`, comum aos
-  repositórios. Diante de vermelho, decida de quem é o defeito antes de mexer;
-  nunca escreva código para o teste passar.
+Para entrar algo novo, servem de guia: necessidade concreta em pelo menos dois
+consumidores atuais, contrato coeso e testável isolado, núcleo neutro de
+framework (integração em extra explícito) e nenhuma dependência de banco ou
+domínio. São orientação, não portão: um caso fora deles pode entrar com o
+motivo registrado. "Não uniformizar regras diferentes" recusa obrigar dois
+consumidores a se comportarem igual, mas aceita parametrizar uma mecânica comum
+para cada um declarar a sua regra (como `config.ler_flag(estrito=)` e a
+política do consumidor em `ratelimit.iniciar_limiter`).
 
 ## Validação
-
-O Compose é a interface oficial para lint, testes e auditoria. Ele constrói a
-imagem com Python 3.15 e instala as versões registradas em `uv.lock`:
 
 ```powershell
 docker compose --profile quality build --pull quality
@@ -146,27 +77,37 @@ docker compose --profile quality run --build --rm --no-deps quality
 docker compose --profile quality run --rm --no-deps audit
 ```
 
-Rode os três completos na máquina antes de cada commit: é essa verificação que
-vale. O commit vai direto ao `main`, com `git push`, sem PR e sem esperar nada.
-A regra do `main` continua impedindo apagá-lo ou reescrever o histórico: nada
-de push forçado nem de rebase do `main`.
+Os três, completos, antes de todo commit. O `.venv` local não é necessário.
 
-A CI roda depois de cada push e semanalmente (com build sem cache) só como
-aviso e não bloqueia nada; se falhar, investigue. O Dependabot continua por PR,
-com os checks obrigatórios (testes, auditoria Python e Trivy); o merge é manual
-(o workflow de auto-merge foi removido). O
-`.venv` local não é necessário para
-testar este projeto; não instale ferramentas Python globalmente no Windows.
+- Só documentação: `git diff --check` e
+  `python ../_manutencao/compartilhados/sincronizar.py`.
+- Antes de um consumidor adotar uma tag nova, valide o contrato afetado nele:
+  em autenticação e segurança, build e testes, login no navegador, expiração de
+  sessão e uma ação protegida por CSRF ou confirmação.
 
-Se rede, proxy ou CA impedir o download, registre o bloqueio; não improvise uma
-instalação no Python global. Antes de encerrar, execute no host as verificações
-que não exigem runtime do projeto:
+## Limites que o código não mostra sozinho
 
-```powershell
-git diff --check
-git status --short
-```
+- **Layout `src/`.** O pacote só entra no `sys.path` instalado, então a suíte
+  exercita o que os consumidores recebem, `package-data` inclusive. No layout
+  plano anterior, um CSS fora do wheel passava despercebido.
+- **Núcleo sem Flask.** O pacote-base tem `dependencies = []`, e `security`,
+  `formatting`, `config`, `secrets`, `ui`, `logs`, `passwords` e `session`
+  precisam importar sem Flask, Werkzeug, Flask-WTF ou Flask-Limiter; import de
+  integração fica dentro da função ou no extra `[flask]`.
+  `tests/test_nucleo_sem_flask.py` guarda isso num interpretador limpo.
+- **Defaults fechados.** Exceção de segurança é explícita no ponto de consumo
+  e coberta por teste; alteração pública tem caminho feliz e recusa.
+- **Rate limit.** A biblioteca inicia o Flask-Limiter e dá a política de login,
+  mas o backend é do consumidor: `memory://` conta por processo. Nos VPS, o
+  Nginx limita o `POST /login` de verdade.
 
-Faça também buscas por referências obsoletas e confira se todos os caminhos e
-links citados existem. No encerramento, informe separadamente os comandos
-executados no host e no contêiner.
+## Versão e release
+
+Os consumidores fixam a dependência por tag Git
+(`sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@vX.Y.Z`, com
+`[flask]` onde precisam da integração). Tag publicada é imutável. Toda mudança
+pública ganha versão nova, pelo impacto. A tag nasce depois do push, sobre o
+commit no `main`, e ganha na hora uma release com o que entra e o que muda na
+adoção (`gh release create vX.Y.Z --verify-tag --notes-file notas.md`): a
+página de releases é o changelog. A adoção não é simultânea; cada app mantém a
+sua tag até passar nos próprios testes e no deploy.

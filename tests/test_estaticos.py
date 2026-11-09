@@ -8,7 +8,7 @@ from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from flask import Flask, url_for
+from flask import Flask, session, url_for
 
 from sharedauth.estaticos import instalar_versao_de_estaticos
 from sharedauth.ui import ARQUIVO_CSS, UM_ANO_EM_SEGUNDOS, registrar_ui
@@ -110,6 +110,68 @@ def test_conteudo_novo_muda_a_url_sem_reiniciar(app: Flask, pasta: Path) -> None
 
     # A URL de antes agora revalida: bate com o nome, não com o conteúdo.
     assert app.test_client().get(antes).cache_control.max_age is None
+
+
+@pytest.fixture
+def app_com_sessao(app: Flask) -> Flask:
+    """Consulta e renova a sessão em toda requisição, como um app de verdade."""
+    app.secret_key = "chave-de-teste"
+
+    @app.before_request
+    def _sessao_permanente() -> None:
+        session.permanent = True
+        session.get("usuario")
+
+    @app.get("/pagina")
+    def pagina() -> str:
+        session["visitas"] = session.get("visitas", 0) + 1
+        return "ok"
+
+    return app
+
+
+def test_estatico_versionado_nao_varia_por_cookie_nem_o_renova(
+    app_com_sessao: Flask,
+) -> None:
+    """`Vary: Cookie` anula o cache sem alterar o `Cache-Control`: o navegador
+    revalida sempre que o cookie muda, e o de sessão muda a cada renovação."""
+    with app_com_sessao.test_request_context():
+        url = url_for("static", filename="app.js")
+    cliente = app_com_sessao.test_client()
+    cliente.get("/pagina")
+
+    resposta = cliente.get(url)
+
+    assert resposta.cache_control.immutable
+    assert "Cookie" not in resposta.vary
+    assert "Set-Cookie" not in resposta.headers
+
+
+def test_sessao_continua_salva_fora_do_estatico_versionado(
+    app_com_sessao: Flask,
+) -> None:
+    cliente = app_com_sessao.test_client()
+
+    pagina = cliente.get("/pagina")
+    assert "Cookie" in pagina.vary
+    assert "Set-Cookie" in pagina.headers
+    assert cliente.get("/pagina").status_code == 200
+    with cliente.session_transaction() as sessao:
+        assert sessao["visitas"] == 2
+
+    # Sem a versão, não há cache longo a proteger: segue o padrão do Flask.
+    sem_versao = cliente.get("/static/app.js")
+    assert sem_versao.cache_control.no_cache
+    assert "Cookie" in sem_versao.vary
+
+
+def test_interface_de_sessao_padrao_nao_e_alterada_em_outro_app(
+    app_com_sessao: Flask,
+) -> None:
+    """A interface padrão do Flask é um atributo de classe: alterá-la no lugar
+    mudaria o comportamento de todo app do processo."""
+    assert Flask("outro").session_interface is Flask.session_interface
+    assert app_com_sessao.session_interface is not Flask.session_interface
 
 
 def test_rota_que_nao_e_estatico_nao_e_tocada(app: Flask) -> None:

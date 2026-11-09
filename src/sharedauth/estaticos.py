@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 from pathlib import Path
+from typing import Any
 
 from flask import Flask, request
 from werkzeug.security import safe_join
@@ -47,11 +48,46 @@ def _pasta(app: Flask, endpoint: str) -> str | None:
     return blueprint.static_folder if blueprint is not None else None
 
 
+class _SessaoForaDoCacheLongo:
+    """Interface de sessão que não toca a resposta de um estático versionado.
+
+    O Flask acrescenta ``Vary: Cookie`` a toda resposta cuja requisição consultou
+    a sessão, o que qualquer ``before_request`` faz. Num estático, isso anula o
+    cache sem nenhum sinal: o cabeçalho ``Cache-Control`` continua certo, mas o
+    navegador só reaproveita a cópia se o cookie for idêntico ao da visita
+    anterior, e o de sessão muda a cada renovação. Volta a perguntar ao servidor
+    em toda página, e nenhum teste de cabeçalho percebe.
+
+    Tem de ser aqui, e não em ``after_request``: o Flask salva a sessão depois de
+    todos eles, e o cabeçalho voltaria. Pular o salvamento também tira o
+    ``Set-Cookie`` de uma resposta marcada como ``public``, que não deveria tê-lo.
+    A sessão não muda ao servir um arquivo, e a página seguinte a renova.
+
+    Delega em vez de herdar porque a interface padrão do Flask é um atributo de
+    classe, compartilhado por todos os apps do processo, e o consumidor pode ter
+    configurado outra.
+    """
+
+    def __init__(self, original: Any) -> None:
+        self._original = original
+
+    def __getattr__(self, nome: str) -> Any:
+        return getattr(self._original, nome)
+
+    def save_session(self, app: Flask, sessao: Any, resposta: Any) -> None:
+        if _eh_estatico(request.endpoint) and resposta.cache_control.immutable:
+            return
+        self._original.save_session(app, sessao, resposta)
+
+
 def instalar_versao_de_estaticos(app: Flask) -> None:
     """Versiona as URLs de estático e dá cache longo a quem pede a versão certa.
 
     Não exige mudança nos templates: basta o ``url_for`` de sempre. Um ``?v=``
     escrito à mão no template fica duplicado na URL, então retire-o ao adotar.
+
+    Chame depois de configurar uma interface de sessão própria, se houver: ela é
+    embrulhada aqui (ver :class:`_SessaoForaDoCacheLongo`).
 
     O hash é calculado uma vez por arquivo; a chave leva o instante e o tamanho
     para que, fora da imagem (no ``flask run`` com recarga), uma edição mude a
@@ -61,6 +97,7 @@ def instalar_versao_de_estaticos(app: Flask) -> None:
     :func:`sharedauth.ui.url_do_asset` funcionando como antes.
     """
     versoes: dict[tuple[str, int, int], str] = {}
+    app.session_interface = _SessaoForaDoCacheLongo(app.session_interface)  # type: ignore[assignment]
 
     def versao(endpoint: str, arquivo: str) -> str | None:
         pasta = _pasta(app, endpoint)

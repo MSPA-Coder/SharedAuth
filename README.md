@@ -43,19 +43,19 @@ Permanecem nos consumidores:
 
 ## Instalação e fronteira de dependências
 
-A versão atual é `0.14.0`. Os consumidores instalam diretamente da tag Git,
+A versão atual é `0.15.0`. Os consumidores instalam diretamente da tag Git,
 sem acompanhar branch ou usar instalação editável.
 
 Aplicativo que usa somente o núcleo:
 
 ```text
-sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.14.0
+sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.15.0
 ```
 
 Aplicativo Flask:
 
 ```text
-sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.14.0
+sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.15.0
 ```
 
 O pacote-base não declara dependências. Estes módulos podem ser importados
@@ -85,6 +85,7 @@ demais módulos e para as funções Flask de `security` e `ui`.
 | `sharedauth.secrets` | `ler_arquivo_de_segredo` e `resolver_segredo`: `NOME_FILE` antes de `NOME`, recusa ausente, vazio, valor de exemplo (`valores_recusados`) e curto demais (`comprimento_minimo`), trava opcional do caminho esperado. Nenhuma mensagem carrega o valor. Python puro. |
 | `sharedauth.logs` | `sanitizar_log`: redige credencial reconhecível (`CHAVES_SENSIVEIS`) e neutraliza injeção de linha antes de um texto de fora ir para o log. Descarta o que passa de `TETO_DE_ENTRADA` antes de inspecionar, para o custo não acompanhar o tamanho de uma mensagem escolhida de fora. Rede, não garantia — a defesa primária é não pôr segredo em mensagem. Python puro. |
 | `sharedauth.ui` | Assets CSS/JS, caminho para estáticos no Django, blueprint estático no Flask, severidades, ícones SVG e global Jinja. `registrar_ui(app, max_age_segundos=...)` e `url_do_asset` trocam os 304 por cache local, com a versão do pacote na URL. |
+| `sharedauth.estaticos` | `instalar_versao_de_estaticos`: todo `url_for` de estático, do app e dos blueprints, ganha o hash do conteúdo, e quem pede a versão certa recebe um ano de cache. Pedido sem versão ou com versão antiga revalida. É o caminho preferível em app Flask, por cobrir todos os arquivos sem mudar os templates. |
 | `sharedauth.passwords` | Piso de senha, validação, hash e conferência por Werkzeug; senha temporária para reset pelo administrador e validação da troca feita pelo próprio dono. |
 | `sharedauth.session` | Configuração dos cookies de sessão e de “lembrar-me” no Flask, incluindo a duração de cada um; e a amarra entre a sessão e a senha em vigor (`marca_de_sessao`, `marcas_conferem`, `identificador_de_sessao`, `separar_identificador`), que faz a troca de senha derrubar as sessões abertas em outros lugares. Esta segunda metade é Python puro. |
 | `sharedauth.csrf` | Inicialização isolada de `CSRFProtect` por app Flask. |

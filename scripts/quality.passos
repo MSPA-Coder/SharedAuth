@@ -1,0 +1,3 @@
+--profile quality build --pull quality
+--profile quality run --build --rm --no-deps quality
+--profile quality run --rm --no-deps audit

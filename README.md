@@ -43,19 +43,20 @@ Permanecem nos consumidores:
 
 ## Instalação e fronteira de dependências
 
-A versão atual é `0.15.1`. Os consumidores instalam diretamente da tag Git,
+A versão atual é `0.15.2`. Os consumidores instalam diretamente da tag Git
+(ou do commit dela),
 sem acompanhar branch ou usar instalação editável.
 
 Aplicativo que usa somente o núcleo:
 
 ```text
-sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.15.1
+sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.15.2
 ```
 
 Aplicativo Flask:
 
 ```text
-sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.15.1
+sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.15.2
 ```
 
 O pacote-base não declara dependências. Estes módulos podem ser importados
@@ -86,7 +87,7 @@ demais módulos e para as funções Flask de `security` e `ui`.
 | `sharedauth.logs` | `sanitizar_log`: redige credencial reconhecível (`CHAVES_SENSIVEIS`) e neutraliza injeção de linha antes de um texto de fora ir para o log. Descarta o que passa de `TETO_DE_ENTRADA` antes de inspecionar, para o custo não acompanhar o tamanho de uma mensagem escolhida de fora. Rede, não garantia — a defesa primária é não pôr segredo em mensagem. Python puro. |
 | `sharedauth.ui` | Assets CSS/JS, caminho para estáticos no Django, blueprint estático no Flask, severidades, ícones SVG e global Jinja. `registrar_ui(app, max_age_segundos=...)` e `url_do_asset` trocam os 304 por cache local, com a versão do pacote na URL. |
 | `sharedauth.estaticos` | `instalar_versao_de_estaticos`: todo `url_for` de estático, do app e dos blueprints, ganha o hash do conteúdo, e quem pede a versão certa recebe um ano de cache. Pedido sem versão ou com versão antiga revalida. É o caminho preferível em app Flask, por cobrir todos os arquivos sem mudar os templates. |
-| `sharedauth.passwords` | Piso de senha, validação, hash e conferência por Werkzeug; senha temporária para reset pelo administrador e validação da troca feita pelo próprio dono. |
+| `sharedauth.passwords` | Piso de senha, validação, hash e conferência por Werkzeug; `conferir_login(hash_, senha, *, ativo=True)` para o login com tempo igual em todos os caminhos (ver abaixo); senha temporária para reset pelo administrador e validação da troca feita pelo próprio dono. |
 | `sharedauth.session` | Configuração dos cookies de sessão e de “lembrar-me” no Flask, incluindo a duração de cada um; e a amarra entre a sessão e a senha em vigor (`marca_de_sessao`, `marcas_conferem`, `identificador_de_sessao`, `separar_identificador`), que faz a troca de senha derrubar as sessões abertas em outros lugares. Esta segunda metade é Python puro. |
 | `sharedauth.csrf` | Inicialização isolada de `CSRFProtect` por app Flask. |
 | `sharedauth.ratelimit` | Inicialização isolada de `Limiter` por app, política padrão de login de 10 tentativas por minuto, política opcional do consumidor e `aplicar_limite`/`isentar_limite` por endpoint. |
@@ -138,10 +139,29 @@ em memória é local ao processo e não coordena contadores entre workers,
 contêineres ou servidores. Portanto, `memory://` não deve ser tratado como
 proteção completa de produção.
 
-Nos VPS atuais, o Nginx compartilhado também limita `POST /login`. Uma topologia
+No VPS atual, o Nginx compartilhado também limita `POST /login`. Uma topologia
 diferente precisa manter proteção equivalente na borda ou configurar storage
 compartilhado para o Flask-Limiter. Essa decisão e sua operação pertencem a
 cada consumidor.
+
+## Login com tempo igual
+
+`passwords.conferir_login(hash_, senha, *, ativo=True) -> bool` sempre gasta o
+scrypt: contra o hash do usuário, ou contra um hash descartável quando ele não
+existe. Sem isso, o curto-circuito `usuario is None or not usuario.ativo or
+not conferir_hash(...)` responde rápido para login inexistente ou inativo e
+entrega, pelo tempo, quais logins existem. Chame-a antes de decidir pelo
+usuário:
+
+```python
+usuario = buscar_usuario(login)  # pode ser None
+ok = conferir_login(
+    usuario.senha_hash if usuario else None, senha,
+    ativo=bool(usuario and usuario.ativo),
+)
+if not ok:
+    return erro_generico()  # mesma mensagem para qualquer falha
+```
 
 ## Versionamento
 
@@ -163,13 +183,12 @@ O Compose constrói o ambiente Python 3.15 travado em `uv.lock`. Execute lint,
 testes e auditoria sem instalar ferramentas no Windows:
 
 ```powershell
-docker compose --profile quality build --pull quality
-docker compose --profile quality run --build --rm --no-deps quality
-docker compose --profile quality run --rm --no-deps audit
+.\scripts\quality.ps1
 ```
 
-Rode-os completos antes de cada commit: é essa verificação que vale, e o commit
-vai direto ao `main`, sem PR. A CI roda depois de cada push e repete o build
+O script roda os passos listados em `scripts/quality.passos` (build, lint e
+testes, auditoria). Rode-o completo antes de cada commit: é essa verificação
+que vale, e o commit vai direto ao `main`, sem PR. A CI roda depois de cada push e repete o build
 sem cache semanalmente, só como aviso; ela reprova dependências com CVEs
-conhecidas ou achados HIGH/CRITICAL do Trivy. Nos PRs do Dependabot, esses
-checks são obrigatórios e o merge é automático.
+conhecidas ou achados HIGH/CRITICAL do Trivy. O Dependabot chega por PR; o
+merge é manual.

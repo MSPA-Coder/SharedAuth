@@ -574,7 +574,7 @@ wheels = [
 
 [[package]]
 name = "sharedauth"
-version = "0.15.1"
+version = "0.15.2"
 source = { editable = "." }
 
 [package.optional-dependencies]

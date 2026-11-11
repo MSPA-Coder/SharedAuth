@@ -21,6 +21,7 @@ nunca chega nessas funções.
 
 from __future__ import annotations
 
+import functools
 import secrets
 
 MIN_PASSWORD_LENGTH = 10
@@ -99,6 +100,42 @@ def conferir_hash(hash_: str | None, senha: str) -> bool:
     if not hash_:
         return False
     return check_password_hash(hash_, senha)
+
+
+@functools.cache
+def _hash_de_equiparacao() -> str:
+    """Hash descartável, gerado com o mesmo custo de :func:`gerar_hash`."""
+    from werkzeug.security import generate_password_hash
+
+    return generate_password_hash(secrets.token_urlsafe(16))
+
+
+def conferir_login(hash_: str | None, senha: str, *, ativo: bool = True) -> bool:
+    """Confere a senha do login gastando o mesmo tempo em todos os caminhos.
+
+    Com ``if usuario is None or not usuario.ativo or not conferir_hash(...)``
+    o scrypt só roda para conta ativa: usuário inexistente ou inativo responde
+    em milissegundos e senha errada de conta ativa em dezenas deles. A mensagem
+    é a mesma, mas o tempo entrega quais logins existem e quais estão ativos.
+
+    Aqui o hash é sempre calculado: contra ``hash_`` quando há um, e contra um
+    hash descartável quando ``hash_`` é ``None``/vazio (usuário inexistente ou
+    sem senha). ``ativo=False`` confere e depois recusa. Devolve ``True`` só se
+    há hash, a conta está ativa e a senha confere. Hash malformado vira
+    ``False``, nunca exceção.
+
+    Chame esta função **antes** de qualquer decisão que dependa de o usuário
+    existir ou estar ativo, e não depois de um curto-circuito. Exige o extra
+    ``[flask]`` (Werkzeug), como :func:`conferir_hash`.
+    """
+    from werkzeug.security import check_password_hash
+
+    alvo = hash_ or _hash_de_equiparacao()
+    try:
+        confere = check_password_hash(alvo, senha)
+    except ValueError:
+        confere = False
+    return bool(hash_) and ativo and confere
 
 
 def gerar_senha_temporaria(tamanho: int = TAMANHO_SENHA_TEMPORARIA) -> str:

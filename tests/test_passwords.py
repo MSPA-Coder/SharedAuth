@@ -9,6 +9,7 @@ from sharedauth.passwords import (
     SenhaMuitoCurtaError,
     SenhaNovaIgualAAtualError,
     conferir_hash,
+    conferir_login,
     gerar_hash,
     gerar_senha_temporaria,
     validar_tamanho,
@@ -181,3 +182,58 @@ def test_erros_de_troca_sao_todos_value_error() -> None:
         SenhaMuitoCurtaError,
     ):
         assert issubclass(erro, ValueError)
+
+
+# --- conferir_login: o scrypt roda em todos os caminhos --------------------
+
+
+@pytest.fixture
+def chamadas_de_hash(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    from werkzeug import security
+
+    chamadas: list[str] = []
+    original = security.check_password_hash
+
+    def espiao(hash_: str, senha: str) -> bool:
+        chamadas.append(hash_)
+        return original(hash_, senha)
+
+    monkeypatch.setattr(security, "check_password_hash", espiao)
+    return chamadas
+
+
+@pytest.mark.parametrize("ausente", [None, ""])
+def test_login_sem_hash_paga_o_hash_e_recusa(
+    chamadas_de_hash: list[str], ausente: str | None
+) -> None:
+    assert conferir_login(ausente, "qualquer-senha") is False
+    assert len(chamadas_de_hash) == 1
+
+
+def test_login_inativo_paga_o_hash_e_recusa_senha_certa(
+    chamadas_de_hash: list[str],
+) -> None:
+    hash_ = gerar_hash("senha-correta-123")
+    assert conferir_login(hash_, "senha-correta-123", ativo=False) is False
+    assert chamadas_de_hash == [hash_]
+
+
+def test_login_ativo_aceita_a_senha_certa_e_recusa_a_errada(
+    chamadas_de_hash: list[str],
+) -> None:
+    hash_ = gerar_hash("senha-correta-123")
+    assert conferir_login(hash_, "senha-correta-123") is True
+    assert conferir_login(hash_, "senha-errada-123") is False
+    assert chamadas_de_hash == [hash_, hash_]
+
+
+def test_login_com_hash_malformado_e_falso_sem_excecao() -> None:
+    assert conferir_login("isto-nao-e-hash", "qualquer-senha") is False
+
+
+def test_hash_de_equiparacao_nunca_confere_e_e_reaproveitado(
+    chamadas_de_hash: list[str],
+) -> None:
+    conferir_login(None, "a")
+    conferir_login(None, "b")
+    assert chamadas_de_hash[0] == chamadas_de_hash[1]

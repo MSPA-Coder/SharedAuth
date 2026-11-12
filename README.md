@@ -144,6 +144,11 @@ diferente precisa manter proteção equivalente na borda ou configurar storage
 compartilhado para o Flask-Limiter. Essa decisão e sua operação pertencem a
 cada consumidor.
 
+O limite efetivo da biblioteca sozinha é o da política (10 tentativas por
+minuto, por IP) vezes o número de workers do consumidor, e não há limite por
+conta: o modelo de usuário é do consumidor, e bloquear conta num sistema de um
+só dono viraria negação de serviço contra ele.
+
 ## Login com tempo igual
 
 `passwords.conferir_login(hash_, senha, *, ativo=True) -> bool` sempre gasta o

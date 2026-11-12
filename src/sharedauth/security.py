@@ -86,6 +86,7 @@ def registrar_cabecalhos(
     *,
     imagens_data_uri: bool = False,
     hsts_segundos: int | None = None,
+    no_store_html: bool = False,
 ) -> None:
     """Aplica :data:`SECURITY_HEADERS` e a CSP em toda resposta do app.
 
@@ -100,6 +101,13 @@ def registrar_cabecalhos(
     :data:`CABECALHO_DE_APRESENTACAO`. Só HTML: acrescentá-lo aos estáticos
     faria um cache guardar duas cópias de cada arquivo sem nenhum ganho, já que
     nenhum estático é pedido por HTMX.
+
+    ``no_store_html=True`` acrescenta ``Cache-Control: no-store`` a toda resposta
+    **HTML**, para o botão Voltar, depois de sair, não mostrar do cache uma tela
+    autenticada num computador compartilhado. Estáticos e JSON ficam de fora, e
+    o ``Cache-Control`` que a rota já decidiu vence. É opt-in: o padrão não
+    muda a resposta de nenhum consumidor; quem serve tela autenticada e ainda
+    não decide o cabeçalho por conta própria liga a opção.
 
     ``hsts_segundos`` publica ``Strict-Transport-Security`` quando informado
     (``None``, o padrão, não publica nada). Passe a mesma flag de ambiente que
@@ -123,6 +131,8 @@ def registrar_cabecalhos(
             )
         if "text/html" in resposta.headers.get("Content-Type", ""):
             resposta.vary.add(CABECALHO_DE_APRESENTACAO)
+            if no_store_html:
+                resposta.headers.setdefault("Cache-Control", "no-store")
         return resposta
 
     registrar = getattr(alvo, "after_app_request", None) or alvo.after_request

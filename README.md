@@ -80,7 +80,7 @@ demais módulos e para as funções Flask de `security` e `ui`.
 
 | Módulo | Contrato |
 |---|---|
-| `sharedauth.security` | Cabeçalhos defensivos, CSP fechada por padrão, `montar_csp` e registro em Flask/Blueprint. |
+| `sharedauth.security` | Cabeçalhos defensivos, CSP fechada por padrão, `montar_csp` e registro em Flask/Blueprint. `registrar_cabecalhos(no_store_html=True)` (opt-in) põe `Cache-Control: no-store` nas respostas HTML sem sobrescrever o que a rota decidiu. |
 | `sharedauth.formatting` | `numero`, `inteiro`, `moeda`, `moeda_com_sinal` e `percentual`, com opções explícitas de ausência e zero. |
 | `sharedauth.config` | `ler_flag` (booleano de ambiente, estrito por padrão) e `montar_url_postgres` (URL de conexão com escape correto). Python puro. |
 | `sharedauth.secrets` | `ler_arquivo_de_segredo` e `resolver_segredo`: `NOME_FILE` antes de `NOME`, recusa ausente, vazio, valor de exemplo (`valores_recusados`) e curto demais (`comprimento_minimo`), trava opcional do caminho esperado. Nenhuma mensagem carrega o valor. Python puro. |

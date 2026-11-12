@@ -181,3 +181,58 @@ def test_hsts_respeita_valor_ja_definido_pelo_app() -> None:
 
     resposta = app.test_client().get("/proprio")
     assert resposta.headers["Strict-Transport-Security"] == "max-age=1"
+
+
+# ---------------------------------------------------------------------------
+# Cache-Control: no-store em HTML (opt-in)
+# ---------------------------------------------------------------------------
+
+
+def _app_no_store(**opcoes) -> Flask:
+    app = Flask(__name__)
+    registrar_cabecalhos(app, **opcoes)
+
+    @app.get("/")
+    def tela() -> str:
+        return "<p>ok</p>"
+
+    @app.get("/dados.json")
+    def dados():
+        return {"ok": True}
+
+    @app.get("/arquivo.css")
+    def estatico():
+        return "a{}", 200, {"Content-Type": "text/css"}
+
+    @app.get("/proprio")
+    def proprio():
+        return "<p>ok</p>", 200, {"Cache-Control": "private, max-age=60"}
+
+    return app
+
+
+def test_no_store_em_html_quando_pedido() -> None:
+    """Computador compartilhado: Voltar, depois de sair, não reabre a tela do cache."""
+    resposta = _app_no_store(no_store_html=True).test_client().get("/")
+
+    assert resposta.headers["Cache-Control"] == "no-store"
+
+
+def test_no_store_nao_alcanca_json_nem_estatico() -> None:
+    cliente = _app_no_store(no_store_html=True).test_client()
+
+    assert "Cache-Control" not in cliente.get("/dados.json").headers
+    assert "Cache-Control" not in cliente.get("/arquivo.css").headers
+
+
+def test_no_store_respeita_o_cache_control_que_a_rota_decidiu() -> None:
+    resposta = _app_no_store(no_store_html=True).test_client().get("/proprio")
+
+    assert resposta.headers["Cache-Control"] == "private, max-age=60"
+
+
+def test_no_store_nao_aparece_por_padrao() -> None:
+    """Opt-in: adotar a tag não muda a resposta de quem não pediu."""
+    resposta = _app_no_store().test_client().get("/")
+
+    assert "Cache-Control" not in resposta.headers

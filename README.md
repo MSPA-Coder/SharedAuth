@@ -43,20 +43,20 @@ Permanecem nos consumidores:
 
 ## Instalação e fronteira de dependências
 
-A versão atual é `0.15.2`. Os consumidores instalam diretamente da tag Git
+A versão atual é `0.16.0`. Os consumidores instalam diretamente da tag Git
 (ou do commit dela),
 sem acompanhar branch ou usar instalação editável.
 
 Aplicativo que usa somente o núcleo:
 
 ```text
-sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.15.2
+sharedauth @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.16.0
 ```
 
 Aplicativo Flask:
 
 ```text
-sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.15.2
+sharedauth[flask] @ git+https://github.com/MSPA-Coder/SharedAuth.git@v0.16.0
 ```
 
 O pacote-base não declara dependências. Estes módulos podem ser importados

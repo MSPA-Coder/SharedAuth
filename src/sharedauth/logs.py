@@ -53,6 +53,11 @@ CHAVES_SENSIVEIS: frozenset[str] = frozenset(
         "private_key",
         "credential",
         "credentials",
+        # Cabeçalho colado por engano: `Cookie: session=...`, `Set-Cookie: ...`.
+        "cookie",
+        "session",
+        "sessionid",
+        "csrf",
     }
 )
 

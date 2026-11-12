@@ -73,6 +73,25 @@ def test_valor_de_chave_sensivel_e_redigido(entrada: str) -> None:
     assert MARCA_REDIGIDA in limpo
 
 
+@pytest.mark.parametrize(
+    "entrada",
+    [
+        "Cookie: session=abc123xyz",
+        "Cookie: tema=escuro; session=abc123xyz",
+        "Set-Cookie: sessionid=abc123xyz; HttpOnly",
+        "session=abc123xyz",
+        "csrf=abc123xyz",
+        "cookie=abc123xyz",
+    ],
+)
+def test_cabecalho_de_cookie_colado_no_log_e_redigido(entrada: str) -> None:
+    """Uma linha de cabeçalho colada por engano não leva a sessão para o log."""
+    limpo = sanitizar_log(entrada)
+
+    assert "abc123xyz" not in limpo
+    assert MARCA_REDIGIDA in limpo
+
+
 def test_a_chave_sobrevive_a_redacao() -> None:
     """Saber que havia uma senha ali e util; saber qual, nao."""
     limpo = sanitizar_log("usuario=ana senha=hunter2 acao=login")
